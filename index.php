@@ -61,14 +61,35 @@ try {
     --sidebar-w: 340px;
   }
 
+  [data-theme="light"] {
+    --bg: #fdfaf6;
+    --surface: #ffffff;
+    --surface2: #f4efeb;
+    --surface3: #e8e1d7;
+    --gold: #b38222;
+    --gold-light: #c2902f;
+    --gold-dim: rgba(179, 130, 34, 0.15);
+    --cream: #1a1814;
+    --cream-dim: rgba(26, 24, 20, 0.7);
+    --red: #d33c3c;
+    --green: #2c8558;
+    --text: #3c3730;
+    --text-dim: #7a7265;
+    --border: rgba(179, 130, 34, 0.25);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
 
   body {
     background: var(--bg);
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
     min-height: 100vh;
-    overflow-x: hidden;
   }
 
   /* ── TOP NAV ── */
@@ -578,12 +599,87 @@ try {
   .main::-webkit-scrollbar { width: 4px; }
   .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+  .cart-overlay {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 150;
+    backdrop-filter: blur(4px);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .cart-overlay.show { opacity: 1; }
+
+  .hide-mobile { display: inline; }
+
+  .close-cart-btn {
+    display: none;
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 24px; cursor: pointer; padding: 4px; line-height: 1;
+  }
+
+  /* Floating Cart Toggle */
+  .floating-cart-toggle {
+    display: none;
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background: var(--surface);
+    color: var(--gold);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 16px 0 0 16px;
+    padding: 16px 10px;
+    cursor: pointer;
+    z-index: 140;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: center;
+  }
+  .floating-cart-toggle:hover { background: var(--surface2); }
+  .floating-cart-toggle .arrow { font-size: 18px; font-weight: bold; margin-bottom: 6px; display: block; }
+  .floating-cart-toggle .icon { font-size: 24px; display: block; }
+  .floating-cart-toggle .badge {
+    background: var(--gold); color: var(--bg);
+    font-size: 11px; font-weight: 700;
+    border-radius: 50%; width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 6px; left: 6px;
+  }
+
   /* Responsive */
   @media (max-width: 900px) {
-    :root { --sidebar-w: 280px; }
-    .main { padding: 24px; }
+    :root { --sidebar-w: 300px; }
+    .layout { display: block; }
+    .main { padding: 24px 16px; max-height: none; overflow-y: visible; }
+    .menu-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+    .sidebar {
+      position: fixed; top: 0; right: 0; bottom: 0; height: 100vh;
+      max-height: 100vh; z-index: 160;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    }
+    .sidebar.show { transform: translateX(0); }
+    .cart-overlay { display: block; pointer-events: none; }
+    .cart-overlay.show { pointer-events: auto; }
+    .sidebar-header { display: flex; align-items: flex-start; justify-content: space-between; }
+    .close-cart-btn { display: block; }
+    .floating-cart-toggle { display: block; }
+    .sidebar.show ~ .floating-cart-toggle { right: -80px; } /* hide when open */
+    .hide-mobile { display: none !important; }
+    .topbar { padding: 0 16px; }
+    .brand { font-size: 20px; }
+    .page-title { font-size: 24px; }
+    .modal { margin: 16px; max-height: 80vh; }
+    .modal-body { padding: 16px; }
+    .modal-footer { padding: 0 16px 16px; }
+    .receipt-table th, .receipt-table td { padding: 10px 0; }
+  }
   }
 </style>
+<script>
+  const savedTheme = localStorage.getItem('warungku_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
 </head>
 <body>
 
@@ -604,13 +700,24 @@ try {
     <a href="riwayat.php" style="color:var(--text-dim);font-size:13px;text-decoration:none;display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
       📋 <span>Riwayat</span>
     </a>
-    <span style="color:var(--text-dim);font-size:13px;">Kasir: <strong style="color:var(--cream)">Admin</strong></span>
-    <div style="position:relative;">
+    <button onclick="toggleTheme()" id="themeToggleBtn" style="background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);cursor:pointer;padding:8px 10px;font-size:14px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">☀️</button>
+    <span style="color:var(--text-dim);font-size:13px;" class="hide-mobile">Kasir: <strong style="color:var(--cream)">Admin</strong></span>
+    <div style="position:relative;cursor:pointer;" onclick="toggleMobileCart()">
       <span style="font-size:22px;">🛒</span>
       <span class="cart-badge" id="topCartBadge">0</span>
     </div>
   </div>
 </header>
+
+<!-- ═══════════════ MOBILE CART OVERLAY ═══════════════ -->
+<div class="cart-overlay" id="cartOverlay" onclick="toggleMobileCart()"></div>
+
+<!-- ═══════════════ FLOATING CART TOGGLE ═══════════════ -->
+<button class="floating-cart-toggle" onclick="toggleMobileCart()">
+  <span class="badge" id="floatCartBadge">0</span>
+  <span class="arrow">←</span>
+  <span class="icon">🛒</span>
+</button>
 
 <!-- ═══════════════ LAYOUT ═══════════════ -->
 <div class="layout">
@@ -658,10 +765,13 @@ try {
   <!-- ── SIDEBAR ── -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <div class="sidebar-title">
-        <span class="icon">🧾</span> Pesanan
+      <div>
+        <div class="sidebar-title">
+          <span class="icon">🧾</span> Pesanan
+        </div>
+        <div class="item-count" id="itemCount">Belum ada item dipilih</div>
       </div>
-      <div class="item-count" id="itemCount">Belum ada item dipilih</div>
+      <button class="close-cart-btn" onclick="toggleMobileCart()">→</button>
     </div>
 
     <div id="orderListWrap" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
@@ -731,6 +841,33 @@ try {
 const menuData = <?= json_encode($menu_items) ?>;
 let cart = {}; // { id: quantity }
 
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('warungku_theme', next);
+  document.getElementById('themeToggleBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
+// Set initial icon
+document.getElementById('themeToggleBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+
+function toggleMobileCart() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('cartOverlay');
+  
+  if (window.innerWidth <= 900) {
+    sidebar.classList.toggle('show');
+    overlay.classList.toggle('show');
+    
+    if (sidebar.classList.contains('show')) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+  }
+}
+
 function fmt(n) {
   return 'Rp ' + n.toLocaleString('id-ID');
 }
@@ -774,6 +911,8 @@ function renderCart() {
   const totalItems = cartIds.reduce((s, id) => s + cart[id], 0);
 
   document.getElementById('topCartBadge').textContent = totalItems;
+  const floatBadge = document.getElementById('floatCartBadge');
+  if (floatBadge) floatBadge.textContent = totalItems;
 
   if (cartIds.length === 0) {
     emptyCart.style.display = 'flex';
@@ -918,6 +1057,15 @@ function doCheckout() {
 function closeModal() {
   document.getElementById('checkoutModal').style.display = 'none';
   document.body.style.overflow = '';
+  // Jika di mobile, kembalikan state scroll tanpa menutup sidebar (karena kita akan clearCart)
+  if (window.innerWidth <= 900) {
+     const sidebar = document.querySelector('.sidebar');
+     if (!sidebar.classList.contains('show')) {
+         document.body.style.overflow = '';
+     } else {
+         document.body.style.overflow = 'hidden';
+     }
+  }
 }
 
 function confirmCheckout() {

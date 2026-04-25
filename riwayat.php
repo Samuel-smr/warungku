@@ -74,6 +74,23 @@ $ordersJson = json_encode($ordersData);
     --radius: 14px;
   }
 
+  [data-theme="light"] {
+    --bg: #fdfaf6;
+    --surface: #ffffff;
+    --surface2: #f4efeb;
+    --surface3: #e8e1d7;
+    --gold: #b38222;
+    --gold-light: #c2902f;
+    --gold-dim: rgba(179, 130, 34, 0.15);
+    --cream: #1a1814;
+    --cream-dim: rgba(26, 24, 20, 0.7);
+    --red: #d33c3c;
+    --green: #2c8558;
+    --text: #3c3730;
+    --text-dim: #7a7265;
+    --border: rgba(179, 130, 34, 0.25);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
@@ -422,7 +439,34 @@ $ordersJson = json_encode($ordersData);
   /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .container { padding: 24px 16px 80px; }
+    .topbar { padding: 0 16px; height: 60px; }
+    .brand { font-size: 20px; }
+    .page-title { font-size: 26px; }
+    .stats-bar { width: 100%; justify-content: space-between; margin-top: 16px; }
+    .stat { text-align: left; }
+    .card-head { flex-wrap: wrap; padding: 16px; }
+    .head-info { flex: 1 1 100%; order: -1; margin-bottom: 8px; }
+    .order-num { order: -2; margin-bottom: 8px; }
+    .head-total { text-align: left; margin-left: auto; }
+    .card-body-inner { padding: 16px; }
+    .card-actions { padding: 0 16px 16px; flex-wrap: wrap; }
+    .action-btn { flex: 1; text-align: center; }
+    .item-row { flex-wrap: wrap; }
+    .item-img { width: 48px; height: 48px; }
+    .item-sub { text-align: left; width: 100%; margin-top: 8px; font-size: 14px; }
+    .filter-tabs { overflow-x: auto; padding-bottom: 8px; flex: 1; }
+    .filter-tabs::-webkit-scrollbar { height: 2px; }
+  }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 </style>
+<script>
+  const savedTheme = localStorage.getItem('warungku_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
 </head>
 <body>
 
@@ -434,7 +478,10 @@ $ordersJson = json_encode($ordersData);
 <!-- ── TOPBAR ── -->
 <header class="topbar">
   <a href="index.php" class="brand">Warung<span>Ku</span></a>
-  <a href="index.php" class="nav-back">← Kembali ke Menu</a>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button onclick="toggleTheme()" id="themeToggleBtn" style="background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);cursor:pointer;padding:8px 10px;font-size:14px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">☀️</button>
+    <a href="index.php" class="nav-back">← Kembali ke Menu</a>
+  </div>
 </header>
 
 <!-- ── CONTAINER ── -->
@@ -496,6 +543,15 @@ $ordersJson = json_encode($ordersData);
 
 <script>
 // ── HELPERS ──
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('warungku_theme', next);
+  document.getElementById('themeToggleBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+document.getElementById('themeToggleBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+
 function fmt(n) {
   return 'Rp ' + Number(n).toLocaleString('id-ID');
 }

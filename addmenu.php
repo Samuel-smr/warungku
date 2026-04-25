@@ -92,6 +92,23 @@ try {
     --radius: 14px;
   }
 
+  [data-theme="light"] {
+    --bg: #fdfaf6;
+    --surface: #ffffff;
+    --surface2: #f4efeb;
+    --surface3: #e8e1d7;
+    --gold: #b38222;
+    --gold-light: #c2902f;
+    --gold-dim: rgba(179, 130, 34, 0.15);
+    --cream: #1a1814;
+    --cream-dim: rgba(26, 24, 20, 0.7);
+    --red: #d33c3c;
+    --green: #2c8558;
+    --text: #3c3730;
+    --text-dim: #7a7265;
+    --border: rgba(179, 130, 34, 0.25);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
@@ -315,14 +332,33 @@ try {
     box-shadow: 0 8px 24px rgba(212,168,83,0.3);
   }
 
+  /* Responsive */
+  @media (max-width: 768px) {
+    .container { padding: 24px 16px 80px; }
+    .topbar { padding: 0 16px; height: 60px; }
+    .brand { font-size: 20px; }
+    .page-title { font-size: 26px; }
+    .form-card { padding: 20px; }
+    .form-actions { flex-direction: column-reverse; gap: 12px; }
+    .btn { width: 100%; }
+    .or-divider { margin: 24px 0; }
+  }
+
 </style>
+<script>
+  const savedTheme = localStorage.getItem('warungku_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
 </head>
 <body>
 
 <!-- ═══════════════ TOPBAR ═══════════════ -->
 <header class="topbar">
   <a href="index.php" class="brand">Warung<span>Ku</span></a>
-  <a href="index.php" class="nav-back">← Kembali ke Menu</a>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button type="button" onclick="toggleTheme()" id="themeToggleBtn" style="background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);cursor:pointer;padding:8px 10px;font-size:14px;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">☀️</button>
+    <a href="index.php" class="nav-back">← Kembali ke Menu</a>
+  </div>
 </header>
 
 <div class="container">
@@ -396,6 +432,17 @@ try {
     </form>
   </div>
 </div>
+
+<script>
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('warungku_theme', next);
+  document.getElementById('themeToggleBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+document.getElementById('themeToggleBtn').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+</script>
 
 </body>
 </html>
