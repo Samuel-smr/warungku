@@ -78,6 +78,7 @@ $shops = $pdo->query("SELECT id, name FROM shops ORDER BY name")->fetchAll();
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pembelian Token — WarungKu Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -86,136 +87,201 @@ $shops = $pdo->query("SELECT id, name FROM shops ORDER BY name")->fetchAll();
       --gold: #d4a853; --gold-dim: rgba(212, 168, 83, 0.12);
       --cream: #f5edd8; --text: #f0e8d5; --text-dim: #8a7f6e;
       --border: rgba(212, 168, 83, 0.15); --red: #e05252; --green: #4caf7d;
+      --radius: 12px;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'DM Sans', sans-serif; }
-    body { background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
     
-    .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; }
+    /* LAYOUT */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* SIDEBAR */
+    .sidebar { 
+      width: 260px; background: var(--surface); border-right: 1px solid var(--border); 
+      padding: 24px 0; display: flex; flex-direction: column;
+      position: fixed; top: 0; bottom: 0; left: 0; z-index: 1000;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
     .brand { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 900; color: var(--gold); padding: 0 24px 32px; }
     .brand span { color: var(--cream); }
     .nav { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 0 12px; }
-    .nav a { padding: 12px 16px; color: var(--text-dim); text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; transition: all 0.2s; }
+    .nav a { padding: 12px 16px; color: var(--text-dim); text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; gap: 12px; }
     .nav a:hover { background: var(--surface2); color: var(--cream); }
     .nav a.active { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--border); }
+    .logout { margin: 24px 12px 0; padding: 12px 16px; color: var(--red); text-decoration: none; font-size: 14px; font-weight: 600; text-align: center; border: 1px solid rgba(224,82,82,0.3); border-radius: 8px; }
     
-    .main { flex: 1; padding: 40px; overflow-y: auto; }
+    /* MAIN CONTENT */
+    .main { flex: 1; padding: 40px; margin-left: 260px; min-width: 0; }
     .header { margin-bottom: 30px; }
     .title { font-family: 'Playfair Display', serif; font-size: 32px; color: var(--cream); margin-bottom: 8px; }
     
+    /* MOBILE HEADER */
+    .mobile-header {
+      display: none; height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 20px; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 900;
+    }
+    .menu-toggle { background: none; border: none; color: var(--gold); font-size: 24px; cursor: pointer; padding: 8px; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 950; display: none; opacity: 0; transition: opacity 0.3s; }
+
     .card { background: var(--surface); border: 1px solid var(--border); padding: 24px; border-radius: 12px; margin-bottom: 24px; }
-    .table { width: 100%; border-collapse: collapse; }
-    .table th { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-dim); font-size: 12px; text-transform: uppercase; }
+    
+    /* TABLE */
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .table th { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
     .table td { padding: 16px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
     
     .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-    .badge.paid { background: rgba(76,175,125,0.1); color: var(--green); border: 1px solid rgba(76,175,125,0.3); }
+    .badge.active { background: rgba(76,175,125,0.1); color: var(--green); border: 1px solid rgba(76,175,125,0.3); }
     .badge.pending { background: rgba(212, 168, 83, 0.1); color: var(--gold); border: 1px solid rgba(212, 168, 83, 0.3); }
     .badge.cancelled { background: rgba(224,82,82,0.1); color: var(--red); border: 1px solid rgba(224,82,82,0.3); }
+    .badge.expired { background: rgba(224,82,82,0.05); color: var(--text-dim); border: 1px solid var(--border); }
     
     .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
-    .form-control { width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; }
-    .btn { padding: 8px 16px; background: var(--gold); color: var(--bg); border: none; border-radius: 6px; font-weight: bold; font-size:13px; cursor: pointer; }
+    .form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; }
+    .form-control { width: 100%; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 14px; }
+    .btn { padding: 8px 16px; background: var(--gold); color: var(--bg); border: none; border-radius: 8px; font-weight: 700; font-size:13px; cursor: pointer; transition: transform 0.2s; }
+    .btn:hover { transform: translateY(-1px); }
     .btn.green { background: rgba(76,175,125,0.1); color: var(--green); border: 1px solid var(--green); }
     .btn.green:hover { background: var(--green); color: #fff; }
-    .btn.red { background: rgba(224,82,82,0.1); color: var(--red); border: 1px solid var(--red); margin-left:8px; }
+    .btn.red { background: rgba(224,82,82,0.1); color: var(--red); border: 1px solid var(--red); }
     .btn.red:hover { background: var(--red); color: #fff; }
-    .msg { padding: 12px; background: rgba(76,175,125,0.1); color: var(--green); border-radius: 8px; margin-bottom: 20px; }
+    .msg { padding: 12px; background: rgba(76,175,125,0.1); color: var(--green); border-radius: 8px; margin-bottom: 20px; font-size: 14px; border: 1px solid rgba(76,175,125,0.2); }
+
+    /* RESPONSIVE */
+    @media (max-width: 992px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.active { transform: translateX(0); }
+      .main { margin-left: 0; padding: 24px 20px; }
+      .mobile-header { display: flex; }
+      .overlay.active { display: block; opacity: 1; }
+      .title { font-size: 28px; }
+    }
+    @media (max-width: 768px) {
+      .add-form { flex-direction: column; align-items: stretch!important; gap: 0!important; }
+      .action-btns { flex-direction: column; gap: 8px; display: flex; }
+      .btn { width: 100%; text-align: center; }
+    }
   </style>
 </head>
 <body>
 
-  <aside class="sidebar">
-    <div class="brand">Warung<span>Ku</span> Admin</div>
-    <nav class="nav">
-      <a href="index.php">Dashboard</a>
-      <a href="shops.php">Manajemen Toko</a>
-      <a href="users.php">Manajemen User</a>
-      <a href="products.php">Manajemen Produk</a>
-      <a href="subscriptions.php" class="active">Pembelian Token</a>
-    </nav>
-  </aside>
+  <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
-  <main class="main">
-    <header class="header">
-      <h1 class="title">Pembelian Token Langganan</h1>
-      <p style="color:var(--text-dim);font-size:14px;">Validasi pembayaran langganan kantin. Menyetujui token otomatis memperpanjang masa aktif toko.</p>
-    </header>
+  <header class="mobile-header">
+    <div class="brand" style="padding:0; margin:0; font-size:20px;">Warung<span>Ku</span> Admin</div>
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+  </header>
 
-    <?php if ($message): ?><div class="msg"><?= htmlspecialchars($message) ?></div><?php endif; ?>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">Warung<span>Ku</span> Admin</div>
+      <nav class="nav">
+        <a href="index.php">📊 Dashboard</a>
+        <a href="shops.php">🏪 Manajemen Toko</a>
+        <a href="users.php">👥 Manajemen User</a>
+        <a href="products.php">🍔 Manajemen Produk</a>
+        <a href="subscriptions.php" class="active">💎 Pembelian Token</a>
+      </nav>
+      <a href="logout.php" class="logout">🚪 Keluar</a>
+    </aside>
 
-    <div class="card" style="margin-bottom: 30px;">
-      <h3 style="margin-bottom: 16px;">Buat Tagihan Manual</h3>
-      <form method="POST" style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;">
-        <input type="hidden" name="action" value="add_manual">
-        <div class="form-group" style="flex:1; min-width:200px;">
-          <label>Pilih Toko</label>
-          <select name="shop_id" class="form-control" required>
-            <option value="">-- Pilih Toko --</option>
-            <?php foreach ($shops as $s): ?>
-            <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="form-group" style="flex:1; min-width:200px;">
-          <label>Paket Langganan</label>
-          <select name="plan_type" class="form-control" required>
-            <option value="1_month">1 Bulan (Rp 20.000)</option>
-            <option value="6_months">6 Bulan (Rp 110.000)</option>
-            <option value="12_months">1 Tahun (Rp 200.000)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <button type="submit" class="btn" style="padding:10px 20px;">Buat Tagihan</button>
-        </div>
-      </form>
-    </div>
+    <main class="main">
+      <header class="header">
+        <h1 class="title">Pembelian Token Langganan</h1>
+        <p style="color:var(--text-dim);font-size:14px;">Validasi pembayaran langganan kantin. Menyetujui token otomatis memperpanjang masa aktif toko.</p>
+      </header>
 
-    <div class="card">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID Tagihan</th>
-            <th>Toko Pemesan</th>
-            <th>Paket</th>
-            <th>Nominal</th>
-            <th>Status</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($subs as $sub): ?>
-          <tr>
-            <td>#<?= $sub['id'] ?><br><small style="color:var(--text-dim)"><?= date('d M Y', strtotime($sub['created_at'])) ?></small></td>
-            <td style="font-weight:bold; color:var(--cream);"><?= htmlspecialchars($sub['shop_name']) ?></td>
-            <td><?= str_replace('_', ' ', strtoupper($sub['plan_type'])) ?></td>
-            <td><?= rupiah($sub['amount']) ?></td>
-            <td><span class="badge <?= $sub['status'] ?>"><?= strtoupper($sub['status']) ?></span></td>
-            <td>
-              <?php if($sub['status'] === 'pending'): ?>
-                <form method="POST" style="display:inline;">
-                  <input type="hidden" name="action" value="approve">
-                  <input type="hidden" name="sub_id" value="<?= $sub['id'] ?>">
-                  <button type="submit" class="btn green" onclick="return confirm('Tandai Lunas dan perpanjang masa aktif toko?')">Approve</button>
-                </form>
-                <form method="POST" style="display:inline;">
-                  <input type="hidden" name="action" value="reject">
-                  <input type="hidden" name="sub_id" value="<?= $sub['id'] ?>">
-                  <button type="submit" class="btn red" onclick="return confirm('Tolak dan batalkan tagihan ini?')">Tolak</button>
-                </form>
-              <?php else: ?>
-                <span style="color:var(--text-dim);font-size:12px;">Selesai pada <?= $sub['paid_at'] ? date('d M Y', strtotime($sub['paid_at'])) : '-' ?></span>
+      <?php if ($message): ?><div class="msg">✓ <?= htmlspecialchars($message) ?></div><?php endif; ?>
+
+      <div class="card">
+        <h3 style="margin-bottom: 16px; font-family:'Playfair Display', serif;">Buat Tagihan Manual</h3>
+        <form method="POST" class="add-form" style="display:flex; gap:16px; align-items:flex-end;">
+          <input type="hidden" name="action" value="add_manual">
+          <div class="form-group" style="flex:1; min-width:240px;">
+            <label>Pilih Toko</label>
+            <select name="shop_id" class="form-control" required>
+              <option value="">-- Pilih Toko --</option>
+              <?php foreach ($shops as $s): ?>
+              <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:240px;">
+            <label>Paket Langganan</label>
+            <select name="plan_type" class="form-control" required>
+              <option value="1_month">1 Bulan (Rp 20.000)</option>
+              <option value="6_months">6 Bulan (Rp 110.000)</option>
+              <option value="12_months">1 Tahun (Rp 200.000)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button type="submit" class="btn" style="padding:10px 24px;">Buat Tagihan</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID Tagihan</th>
+                <th>Toko Pemesan</th>
+                <th>Paket</th>
+                <th>Nominal</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($subs as $sub): ?>
+              <tr>
+                <td>#<?= $sub['id'] ?><br><small style="color:var(--text-dim)"><?= date('d M Y', strtotime($sub['created_at'])) ?></small></td>
+                <td style="font-weight:bold; color:var(--cream);"><?= htmlspecialchars($sub['shop_name']) ?></td>
+                <td><?= str_replace('_', ' ', strtoupper($sub['plan_type'])) ?></td>
+                <td><?= rupiah($sub['amount']) ?></td>
+                <td><span class="badge <?= $sub['status'] ?>"><?= strtoupper($sub['status']) ?></span></td>
+                <td>
+                  <?php if($sub['status'] === 'pending'): ?>
+                    <div class="action-btns">
+                      <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="sub_id" value="<?= $sub['id'] ?>">
+                        <button type="submit" class="btn green" onclick="return confirm('Tandai Lunas dan perpanjang masa aktif toko?')">Approve</button>
+                      </form>
+                      <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="sub_id" value="<?= $sub['id'] ?>">
+                        <button type="submit" class="btn red" onclick="return confirm('Tolak dan batalkan tagihan ini?')">Tolak</button>
+                      </form>
+                    </div>
+                  <?php else: ?>
+                    <span style="color:var(--text-dim);font-size:12px;">Diproses pada <?= $sub['paid_at'] ? date('d M Y', strtotime($sub['paid_at'])) : '-' ?></span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+              <?php endforeach; ?>
+              <?php if (empty($subs)): ?>
+              <tr><td colspan="6" style="text-align:center; padding: 40px; color: var(--text-dim);">Belum ada riwayat pembelian langganan.</td></tr>
               <?php endif; ?>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-          <?php if (empty($subs)): ?>
-          <tr><td colspan="6" style="text-align:center;">Belum ada riwayat pembelian langganan.</td></tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </main>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('active');
+      document.getElementById('overlay').classList.toggle('active');
+    }
+  </script>
+
+</body>
+</html>
 
 </body>
 </html>

@@ -45,14 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Login — WarungKu</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#0f0e0b;--surface:#1a1814;--surface2:#231f1a;
-      --gold:#d4a853;--gold-light:#e8c47a;--gold-dim:rgba(212,168,83,.12);
-      --cream:#f5edd8;--cream-dim:rgba(245,237,216,.6);
-      --red:#e05252;--text:#f0e8d5;--text-dim:#8a7f6e;
-      --border:rgba(212,168,83,.15);--radius:16px;
+      --bg:#0f0e0b; --surface:#1a1814; --surface2:#231f1a;
+      --gold:#d4a853; --gold-light:#e8c47a; --gold-dim:rgba(212,168,83,.12);
+      --cream:#f5edd8; --cream-dim:rgba(245,237,216,.6);
+      --red:#e05252; --text:#f0e8d5; --text-dim:#8a7f6e;
+      --border:rgba(212,168,83,.15); --radius:16px;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
@@ -62,10 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       border: 1px solid var(--border);
       border-radius: var(--radius);
       width: 100%;
-      max-width: 400px;
-      padding: 40px;
+      max-width: 420px;
+      padding: 48px 40px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
     }
+    .login-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--gold), transparent, var(--gold)); }
 
     .brand {
       font-family: 'Playfair Display', serif;
@@ -82,6 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       color: var(--text-dim);
       font-size: 14px;
       margin-bottom: 32px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
     }
 
     .badge-admin {
@@ -90,20 +95,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       color: #fff;
       font-size: 10px;
       font-weight: 700;
-      padding: 2px 8px;
+      padding: 2px 10px;
       border-radius: 100px;
       vertical-align: middle;
       margin-left: 8px;
       letter-spacing: 1px;
     }
 
-    .form-group { margin-bottom: 20px; }
+    .form-group { margin-bottom: 24px; }
     .form-group label {
       display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--cream-dim);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold);
       margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
     .form-control {
       width: 100%;
@@ -112,44 +119,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       color: var(--text);
       font-family: 'DM Sans', sans-serif;
       font-size: 15px;
-      padding: 14px 16px;
+      padding: 14px 18px;
       border-radius: 12px;
       transition: all 0.2s;
     }
     .form-control:focus {
       outline: none;
-      border-color: var(--red);
-      box-shadow: 0 0 0 3px rgba(224,82,82,0.15);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 4px var(--gold-dim);
     }
 
     .btn-submit {
       width: 100%;
       padding: 16px;
-      background: var(--red);
-      color: #fff;
+      background: var(--gold);
+      color: var(--bg);
       border: none;
       border-radius: 12px;
       font-family: 'DM Sans', sans-serif;
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
-      transition: all 0.2s;
-      margin-top: 10px;
+      transition: all 0.3s;
+      margin-top: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
     .btn-submit:hover {
+      background: var(--gold-light);
       transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgba(224,82,82,0.3);
+      box-shadow: 0 12px 30px rgba(212,168,83,0.3);
     }
 
     .error-msg {
       background: rgba(224,82,82,0.1);
       border: 1px solid rgba(224,82,82,0.3);
       color: var(--red);
-      padding: 12px;
-      border-radius: 8px;
+      padding: 14px;
+      border-radius: 10px;
       font-size: 13px;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       text-align: center;
+      font-weight: 500;
+    }
+
+    @media (max-width: 480px) {
+      .login-card { padding: 40px 24px; }
+      .brand { font-size: 28px; }
     }
   </style>
 </head>
@@ -157,22 +173,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <div class="login-card">
     <div class="brand">Warung<b>Ku</b> <span class="badge-admin">ADMIN</span></div>
-    <div class="subtitle">Secure Super Admin Access</div>
+    <div class="subtitle">Secure Panel Access</div>
 
     <?php if ($error): ?>
-      <div class="error-msg"><?= htmlspecialchars($error) ?></div>
+      <div class="error-msg">⚠️ <?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="">
+    <form method="POST">
       <div class="form-group">
-        <label for="username">Admin Username</label>
-        <input type="text" id="username" name="username" class="form-control" placeholder="Superadmin ID" required autofocus>
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" class="form-control" placeholder="admin_username" required autofocus>
       </div>
       <div class="form-group">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
       </div>
-      <button type="submit" class="btn-submit">Akses Dashboard</button>
+      <button type="submit" class="btn-submit">Sign In to Admin</button>
     </form>
   </div>
 
