@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /config.php
+Disallow: /api_checkout.php
+Disallow: /api_delete_pesanan.php
+Disallow: /foodpic/
+
+Sitemap: https://catat-pesan.web-portofolio.com/sitemap.xml

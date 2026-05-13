@@ -3,27 +3,37 @@
 // config.php — Konfigurasi Database WarungKu
 // ============================================================
 
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.gc_maxlifetime', 31536000);
+    session_set_cookie_params(31536000);
+    session_start();
+}
+
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');        // Sesuaikan dengan user MySQL kamu
-define('DB_PASS', '');            // Sesuaikan dengan password MySQL kamu
+define('DB_PASS', 'Infinix123?');            // Sesuaikan dengan password MySQL kamu
 define('DB_NAME', 'warungku');
 define('DB_PORT', 3306);
 define('DB_CHARSET', 'utf8mb4');
-
+    
 // ── Buat koneksi PDO ──
-function getDB(): PDO {
+function getDB(): PDO
+{
     static $pdo = null;
 
     if ($pdo === null) {
         $dsn = sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
+            DB_HOST,
+            DB_PORT,
+            DB_NAME,
+            DB_CHARSET
         );
 
         $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_EMULATE_PREPARES => false,
         ];
 
         try {
@@ -43,12 +53,14 @@ function getDB(): PDO {
 }
 
 // ── Helper: format Rupiah ──
-function rupiah(int $amount): string {
+function rupiah(int $amount): string
+{
     return 'Rp ' . number_format($amount, 0, ',', '.');
 }
 
 // ── Helper: response JSON ──
-function jsonResponse(array $data, int $code = 200): never {
+function jsonResponse(array $data, int $code = 200): never
+{
     http_response_code($code);
     header('Content-Type: application/json');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
