@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../config.php';
 
-if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'admin') {
+if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'superadmin') {
     header('Location: index.php');
     exit;
 }
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($username && $password) {
         try {
             $pdo = getDB();
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username AND role = 'admin' LIMIT 1");
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username AND role = 'superadmin' LIMIT 1");
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch();
 
@@ -26,10 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['shop_id'] = $user['shop_id'];
                 
+                // Update last_login
+                $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
+                logActivity($user['id'], 'LOGIN_ADMIN', 'Superadmin login to panel');
+                
                 header('Location: index.php');
                 exit;
             } else {
-                $error = 'Username tidak ditemukan atau Anda bukan Admin.';
+                $error = 'Username tidak ditemukan atau Anda bukan Super Admin.';
             }
         } catch (Exception $e) {
             $error = 'Terjadi kesalahan sistem: ' . $e->getMessage();

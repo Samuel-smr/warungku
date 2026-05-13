@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 
 // Jika sudah login, lempar ke app.php
 if (isset($_SESSION['user_id'])) {
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'superadmin') {
         header('Location: admin/index.php');
     } else {
         header('Location: app.php');
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($username && $password) {
         try {
             $pdo = getDB();
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username LIMIT 1");
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username AND role IN ('admin', 'kasir') LIMIT 1");
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch();
 
@@ -31,14 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['role'] = $user['role'] ?? 'seller';
                 $_SESSION['shop_id'] = $user['shop_id'] ?? null;
                 
-                if ($_SESSION['role'] === 'admin') {
-                    header('Location: admin/index.php');
-                } else {
-                    header('Location: app.php');
-                }
+                // Update last_login
+                $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
+                logActivity($user['id'], 'LOGIN', 'User login via shop portal');
+                
+                header('Location: app.php');
                 exit;
             } else {
-                $error = 'Username atau password salah.';
+                $error = 'Username atau password salah, atau Anda tidak memiliki akses ke sini.';
             }
         } catch (Exception $e) {
             $error = 'Terjadi kesalahan sistem: ' . $e->getMessage();
@@ -201,10 +201,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       z-index: 100;
     }
     .theme-toggle:hover {
-      border-color: var(--gold);
       color: var(--gold);
       transform: translateY(-2px);
     }
+
+    /* PASSWORD TOGGLE */
+    .password-wrapper { position: relative; }
+    .password-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-dim); cursor: pointer;
+      font-size: 18px; padding: 4px; display: flex; align-items: center; justify-content: center;
+      z-index: 5;
+    }
+    .password-toggle:hover { color: var(--gold); }
   </style>
 </head>
 <body>
@@ -226,7 +235,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" class="form-control" placeholder="Masukkan password" required>
+        <div class="password-wrapper">
+          <input type="password" id="password" name="password" class="form-control" placeholder="Masukkan password" required>
+          <button type="button" class="password-toggle" onclick="togglePassword(this)">👁️</button>
+        </div>
       </div>
       <button type="submit" class="btn-submit">Masuk →</button>
     </form>
@@ -250,6 +262,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Set initial icon
     updateThemeIcon(document.documentElement.getAttribute('data-theme'));
+
+    function togglePassword(btn) {
+      const input = btn.previousElementSibling;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
   </script>
 
 </body>

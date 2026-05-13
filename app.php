@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-// app.php — One-Click Order System (Optimized for 40+)
+// app.php — One-Click Order System (Optimized for 40+ & Mixed)
 // ============================================================
 require_once __DIR__ . '/config.php';
 
@@ -30,10 +30,21 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_status') {
 // Cek Langganan
 $stmtSub = $pdo->prepare("SELECT name, subscription_ends_at FROM shops WHERE id = :shop_id");
 $stmtSub->execute(['shop_id' => $shop_id]);
-$shop = $stmtSub->fetch();
+$shop_info = $stmtSub->fetch();
 
-if ($shop && $shop['subscription_ends_at'] && strtotime($shop['subscription_ends_at'] . ' 23:59:59') < time()) {
-    die("Masa aktif toko " . htmlspecialchars($shop['name']) . " telah habis. Silakan hubungi admin.");
+$is_expired = false;
+$days_left = 999;
+if ($shop_info && $shop_info['subscription_ends_at']) {
+    $expiry_time = strtotime($shop_info['subscription_ends_at'] . ' 23:59:59');
+    if ($expiry_time < time()) {
+        $is_expired = true;
+    } else {
+        $days_left = floor(($expiry_time - time()) / 86400);
+    }
+}
+
+if ($is_expired) {
+    die("Masa aktif toko " . htmlspecialchars($shop_info['name'] ?? 'Toko') . " telah habis. Silakan hubungi admin.");
 }
 
 // Ambil Menu - Urutkan Berdasarkan Penjualan Terbanyak (Terlaris)
@@ -60,7 +71,7 @@ function getActiveOrders($pdo, $shop_id) {
         JOIN detail_pesanan dp ON p.id = dp.pesanan_id
         WHERE p.shop_id = :shop_id AND p.status = 'proses'
         GROUP BY p.id
-        ORDER BY p.id ASC
+        ORDER BY p.id DESC
     ");
     $stmt->execute(['shop_id' => $shop_id]);
     return $stmt->fetchAll();
@@ -91,7 +102,6 @@ if (isset($_GET['ajax_active_orders'])) {
     <title>Kasir WarungKu — Mudah & Cepat</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script>
-        // Apply theme immediately to prevent flash
         const savedTheme = localStorage.getItem('warungku_theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
@@ -101,7 +111,6 @@ if (isset($_GET['ajax_active_orders'])) {
             --gold: #d4a853; --cream: #f5edd8; --text: #f0e8d5; --text-dim: #8a7f6e;
             --border: rgba(212,168,83,0.25); --red: #ff5e5e; --green: #4caf7d;
         }
-        /* LIGHT MODE - High Contrast for 40+ */
         [data-theme="light"] {
             --bg: #fdfaf6; --surface: #ffffff; --surface2: #f4efeb;
             --gold: #b38222; --cream: #1a1814; --text: #3c3730; --text-dim: #7a7265;
@@ -111,7 +120,7 @@ if (isset($_GET['ajax_active_orders'])) {
         body { background: var(--bg); color: var(--text); display: flex; height: 100vh; height: 100dvh; overflow: hidden; font-size: 16px; transition: background 0.3s; }
 
         /* SIDEBAR */
-        .sidebar { width: 420px; background: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar { width: 350px; background: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
         .sidebar-header { padding: 24px; border-bottom: 2px solid var(--border); background: var(--surface2); }
         .sidebar-header h2 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 24px; }
         .history-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
@@ -131,27 +140,34 @@ if (isset($_GET['ajax_active_orders'])) {
         .empty-msg { text-align: center; color: var(--text-dim); padding: 60px 20px; font-size: 18px; line-height: 1.6; }
 
         /* MAIN CONTENT */
-        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
-        .topbar { height: 80px; padding: 0 32px; border-bottom: 2px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
-        .brand { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: var(--gold); }
+        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; min-width: 0; }
+        .topbar { min-height: 80px; height: auto; padding: 12px 32px; border-bottom: 2px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); flex-wrap: wrap; gap: 16px; }
+        .brand { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: var(--gold); white-space: nowrap; }
         .brand span { color: var(--cream); }
         
-        .btn-nav { padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; border: 2px solid var(--border); transition: 0.2s; display: flex; align-items: center; gap: 8px; cursor: pointer; background: none; color: var(--text); }
+        .btn-nav { padding: 12px 18px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; border: 2px solid var(--border); transition: 0.2s; display: flex; align-items: center; gap: 8px; cursor: pointer; background: none; color: var(--text); white-space: nowrap; }
         .btn-nav.manage { color: var(--gold); border-color: var(--gold); }
         .btn-nav.theme { color: var(--text-dim); }
         .btn-nav.logout { color: var(--red); border-color: var(--red); }
         .btn-nav:hover { background: var(--surface2); }
 
         .content { flex: 1; overflow-y: auto; padding: 32px; }
-        .filter-bar { display: flex; gap: 12px; margin-bottom: 32px; overflow-x: auto; padding-bottom: 12px; }
+        .filter-bar { display: flex; gap: 12px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 12px; }
         .filter-btn { padding: 12px 24px; border-radius: 100px; border: 2px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; white-space: nowrap; font-size: 16px; font-weight: 700; transition: 0.2s; }
         .filter-btn.active { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+
+        /* RAKITAN AREA */
+        .rakitan-bar { background: #ff9800; color: #000; padding: 20px 32px; display: none; align-items: center; justify-content: space-between; border-bottom: 4px solid #cc7a00; }
+        .rakitan-items { font-weight: 800; font-size: 18px; }
+        .btn-rakitan-send { background: #000; color: #fff; padding: 12px 30px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 4px 0 #333; }
+        .btn-rakitan-cancel { background: transparent; border: 2px solid rgba(0,0,0,0.3); color: #000; padding: 10px 20px; border-radius: 10px; font-weight: 700; cursor: pointer; }
 
         /* GRID & CARDS */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; }
         .card { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; overflow: hidden; cursor: pointer; transition: 0.2s; position: relative; }
         .card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
         .card:active { transform: scale(0.96); }
+        .card.selected { border-color: #ff9800; background: rgba(255, 152, 0, 0.1); border-width: 4px; }
         .card-img { width: 100%; height: 180px; object-fit: cover; }
         .card-body { padding: 16px; text-align: center; }
         .card-name { font-weight: 700; color: var(--cream); margin-bottom: 8px; font-size: 18px; min-height: 50px; display: flex; align-items: center; justify-content: center; }
@@ -171,17 +187,21 @@ if (isset($_GET['ajax_active_orders'])) {
             .topbar { padding: 0 16px; height: auto; padding: 16px; flex-wrap: wrap; gap: 12px; position: sticky; top: 0; z-index: 100; }
             .content { padding: 20px; overflow: visible; flex: none; }
             .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
-            .card-img { height: 140px; }
-            .card-name { font-size: 16px; }
-            .card-price { font-size: 18px; }
         }
     </style>
 </head>
 <body>
 
+    <?php if ($days_left <= 7): ?>
+        <div style="position: fixed; top: 0; left: 0; right: 0; background: var(--red); color: #fff; padding: 10px; text-align: center; font-weight: 800; z-index: 2000; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+            ⚠️ MASA AKTIF TOKO TINGGAL <?= $days_left ?> HARI LAGI. Segera hubungi Admin untuk perpanjang!
+        </div>
+        <style> body { padding-top: 40px; } .topbar { top: 40px; } .rakitan-bar { top: 40px; } </style>
+    <?php endif; ?>
+
     <aside class="sidebar">
         <div class="sidebar-header">
-            <h2>Pesanan Hari Ini</h2>
+            <h2>Pesanan Aktif</h2>
         </div>
         <div class="history-list" id="orderList">
             <!-- AJAX LOAD -->
@@ -189,9 +209,21 @@ if (isset($_GET['ajax_active_orders'])) {
     </aside>
 
     <main class="main">
+        <!-- RAKITAN BAR -->
+        <div class="rakitan-bar" id="rakitanBar">
+            <div class="rakitan-items">
+                🍽 <span id="rakitanCount">0</span> Item Terpilih: <span id="rakitanTotal">Rp 0</span>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button class="btn-rakitan-cancel" onclick="cancelMixed()">Batal</button>
+                <button class="btn-rakitan-send" onclick="sendMixed()">🚀 PESAN SEKARANG</button>
+            </div>
+        </div>
+
         <header class="topbar">
             <div class="brand">Warung<span>Ku</span></div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <button onclick="startMixed()" class="btn-nav manage" id="mixedBtn" style="background:var(--gold); color:#000;">➕ Pesanan Campur (Rakitan)</button>
                 <button onclick="toggleTheme()" class="btn-nav theme" id="themeBtn">☀️ Mode Terang</button>
                 <a href="kelola_menu.php" class="btn-nav manage">⚙️ Kelola Menu</a>
                 <a href="riwayat.php" class="btn-nav history">📋 Riwayat</a>
@@ -209,7 +241,7 @@ if (isset($_GET['ajax_active_orders'])) {
 
             <div class="grid">
                 <?php foreach ($menu_items as $index => $item): ?>
-                    <div class="card" onclick="quickOrder(<?= $item['id'] ?>, '<?= addslashes($item['nama']) ?>')" data-cat="<?= htmlspecialchars($item['category']) ?>">
+                    <div class="card" id="menu-<?= $item['id'] ?>" onclick="handleMenuClick(<?= $item['id'] ?>, '<?= addslashes($item['nama']) ?>', <?= $item['harga'] ?>)" data-cat="<?= htmlspecialchars($item['category']) ?>">
                         <?php if ($item['total_terjual'] > 0 && $index < 3): ?>
                             <div class="badge-popular">🔥 TERLARIS</div>
                         <?php endif; ?>
@@ -229,6 +261,7 @@ if (isset($_GET['ajax_active_orders'])) {
     <div class="toast" id="toast"></div>
 
     <script>
+        // --- THEME LOGIC ---
         function toggleTheme() {
             const current = document.documentElement.getAttribute('data-theme');
             const next = current === 'dark' ? 'light' : 'dark';
@@ -236,13 +269,75 @@ if (isset($_GET['ajax_active_orders'])) {
             localStorage.setItem('warungku_theme', next);
             updateThemeBtn();
         }
-
         function updateThemeBtn() {
             const current = document.documentElement.getAttribute('data-theme');
             const btn = document.getElementById('themeBtn');
             btn.innerHTML = current === 'dark' ? '☀️ Mode Terang' : '🌙 Mode Gelap';
         }
         updateThemeBtn();
+
+        // --- ORDER LOGIC ---
+        let isMixedMode = false;
+        let mixedItems = [];
+
+        function startMixed() {
+            isMixedMode = true;
+            mixedItems = [];
+            document.getElementById('rakitanBar').style.display = 'flex';
+            document.getElementById('mixedBtn').style.display = 'none';
+            updateRakitanUI();
+        }
+
+        function cancelMixed() {
+            isMixedMode = false;
+            mixedItems = [];
+            document.getElementById('rakitanBar').style.display = 'none';
+            document.getElementById('mixedBtn').style.display = 'block';
+            document.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
+        }
+
+        function handleMenuClick(id, name, price) {
+            if (isMixedMode) {
+                // Add to mixed items
+                mixedItems.push({ menu_id: id, nama: name, harga: price, jumlah: 1 });
+                document.getElementById('menu-' + id).classList.add('selected');
+                updateRakitanUI();
+            } else {
+                // Regular one-click
+                quickOrder(id, name);
+            }
+        }
+
+        function updateRakitanUI() {
+            const total = mixedItems.reduce((sum, item) => sum + item.harga, 0);
+            document.getElementById('rakitanCount').textContent = mixedItems.length;
+            document.getElementById('rakitanTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
+        }
+
+        async function sendMixed() {
+            if (mixedItems.length === 0) return alert('Pilih menu dulu!');
+            
+            document.getElementById('loader').style.display = 'flex';
+            const kode = 'MIX-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            
+            try {
+                const res = await fetch('api_checkout.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kode_pesanan: kode, items: mixedItems })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.message);
+
+                showToast(`✅ Pesanan Campur Berhasil!`);
+                cancelMixed();
+                refreshActiveOrders();
+            } catch (e) {
+                alert('Gagal: ' + e.message);
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
 
         async function refreshActiveOrders() {
             const res = await fetch('app.php?ajax_active_orders=1');
@@ -299,7 +394,7 @@ if (isset($_GET['ajax_active_orders'])) {
             const t = document.getElementById('toast');
             t.textContent = msg;
             t.style.display = 'none';
-            void t.offsetWidth; // Trigger reflow
+            void t.offsetWidth; 
             t.style.display = 'block';
             if (window.toastTimeout) clearTimeout(window.toastTimeout);
             window.toastTimeout = setTimeout(() => t.style.display = 'none', 3000);

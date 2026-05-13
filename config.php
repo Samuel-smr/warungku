@@ -66,3 +66,16 @@ function jsonResponse(array $data, int $code = 200): never
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+// ── Helper: Log Aktivitas ──
+function logActivity(int $userId, string $action, string $description = null)
+{
+    try {
+        $pdo = getDB();
+        $shopId = $_SESSION['shop_id'] ?? null;
+        $stmt = $pdo->prepare("INSERT INTO activity_logs (user_id, shop_id, action, description) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$userId, $shopId, $action, $description]);
+    } catch (Exception $e) {
+        // Silently fail logging if database error occurs to avoid breaking the app
+    }
+}

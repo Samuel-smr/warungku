@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config.php';
 
 // Proteksi Admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'superadmin') {
     header('Location: login.php');
     exit;
 }
@@ -107,8 +107,10 @@ $stats = [
         <a href="index.php" class="active">📊 Dashboard</a>
         <a href="shops.php">🏪 Manajemen Toko</a>
         <a href="users.php">👥 Manajemen User</a>
+        <a href="categories.php">📁 Manajemen Kategori</a>
         <a href="products.php">🍔 Manajemen Produk</a>
         <a href="subscriptions.php">💎 Pembelian Token</a>
+        <a href="logs.php">📜 Log Aktivitas</a>
       </nav>
       <a href="logout.php" class="logout">🚪 Keluar</a>
     </aside>

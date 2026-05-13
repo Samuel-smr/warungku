@@ -16,10 +16,14 @@ $shop_id = $_SESSION['shop_id'] ?? 0;
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'delete' && isset($_POST['kode_pesanan'])) {
         $stmt = $pdo->prepare("DELETE FROM pesanan WHERE kode_pesanan = :kode AND shop_id = :shop_id");
-        $stmt->execute(['kode' => $_POST['kode_pesanan'], 'shop_id' => $shop_id]);
+        if ($stmt->execute(['kode' => $_POST['kode_pesanan'], 'shop_id' => $shop_id])) {
+            logActivity($_SESSION['user_id'], 'DELETE_ORDER', "Menghapus pesanan #{$_POST['kode_pesanan']}");
+        }
     } elseif ($_POST['action'] === 'clear_all') {
         $stmt = $pdo->prepare("DELETE FROM pesanan WHERE shop_id = :shop_id");
-        $stmt->execute(['shop_id' => $shop_id]);
+        if ($stmt->execute(['shop_id' => $shop_id])) {
+            logActivity($_SESSION['user_id'], 'CLEAR_HISTORY', "Membersihkan seluruh riwayat pesanan Toko ID $shop_id");
+        }
     }
     header('Location: riwayat.php');
     exit;

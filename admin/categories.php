@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-// products.php — Direktori & CRUD Produk Global (Admin)
+// categories.php — Manajemen Kategori Global (Admin)
 // ============================================================
 require_once __DIR__ . '/../config.php';
 
@@ -20,39 +20,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'add') {
         $shop_id = (int)$_POST['shop_id'];
-        $kategori_id = (int)$_POST['kategori_id'];
         $nama = trim($_POST['nama']);
-        $harga = (int)$_POST['harga'];
-        $stok = (int)$_POST['stok'];
-        $gambar_url = trim($_POST['gambar_url']);
-        $deskripsi = trim($_POST['deskripsi']);
+        $urutan = (int)$_POST['urutan'];
 
-        $stmt = $pdo->prepare("INSERT INTO menu (shop_id, kategori_id, nama, harga, stok, gambar_url, deskripsi) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        if ($stmt->execute([$shop_id, $kategori_id, $nama, $harga, $stok, $gambar_url, $deskripsi])) {
-            logActivity($_SESSION['user_id'], 'ADD_PRODUCT', "Menambah produk '$nama' ke Toko ID $shop_id");
-            $message = "Produk '$nama' berhasil ditambahkan.";
+        $stmt = $pdo->prepare("INSERT INTO kategori (shop_id, nama, urutan) VALUES (?, ?, ?)");
+        if ($stmt->execute([$shop_id, $nama, $urutan])) {
+            $message = "Kategori '$nama' berhasil ditambahkan.";
         }
     } elseif ($action === 'edit') {
         $id = (int)$_POST['id'];
         $shop_id = (int)$_POST['shop_id'];
-        $kategori_id = (int)$_POST['kategori_id'];
         $nama = trim($_POST['nama']);
-        $harga = (int)$_POST['harga'];
-        $stok = (int)$_POST['stok'];
-        $gambar_url = trim($_POST['gambar_url']);
-        $deskripsi = trim($_POST['deskripsi']);
+        $urutan = (int)$_POST['urutan'];
 
-        $stmt = $pdo->prepare("UPDATE menu SET shop_id = ?, kategori_id = ?, nama = ?, harga = ?, stok = ?, gambar_url = ?, deskripsi = ? WHERE id = ?");
-        if ($stmt->execute([$shop_id, $kategori_id, $nama, $harga, $stok, $gambar_url, $deskripsi, $id])) {
-            logActivity($_SESSION['user_id'], 'EDIT_PRODUCT', "Mengubah produk ID $id ('$nama')");
-            $message = "Produk berhasil diperbarui.";
+        $stmt = $pdo->prepare("UPDATE kategori SET shop_id = ?, nama = ?, urutan = ? WHERE id = ?");
+        if ($stmt->execute([$shop_id, $nama, $urutan, $id])) {
+            $message = "Kategori berhasil diperbarui.";
         }
     } elseif ($action === 'delete') {
         $id = (int)$_POST['id'];
-        $stmt = $pdo->prepare("DELETE FROM menu WHERE id = ?");
-        if ($stmt->execute([$id])) {
-            logActivity($_SESSION['user_id'], 'DELETE_PRODUCT', "Menghapus produk ID $id");
-            $message = "Produk berhasil dihapus.";
+        // Cek apakah kategori masih digunakan oleh menu
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM menu WHERE kategori_id = ?");
+        $stmtCheck->execute([$id]);
+        if ($stmtCheck->fetchColumn() > 0) {
+            $error = "Gagal menghapus: Kategori masih digunakan oleh beberapa produk.";
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM kategori WHERE id = ?");
+            if ($stmt->execute([$id])) {
+                $message = "Kategori berhasil dihapus.";
+            }
         }
     }
 }
@@ -62,29 +58,27 @@ $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-$total_products = $pdo->query("SELECT COUNT(*) FROM menu")->fetchColumn();
-$total_pages = ceil($total_products / $limit);
+$total_kategori = $pdo->query("SELECT COUNT(*) FROM kategori")->fetchColumn();
+$total_pages = ceil($total_kategori / $limit);
 
-// Ambil semua menu dari semua toko
-$menus = $pdo->query("
-    SELECT m.*, s.name as shop_name, k.nama as kategori_nama
-    FROM menu m 
-    JOIN shops s ON m.shop_id = s.id 
-    LEFT JOIN kategori k ON m.kategori_id = k.id
-    ORDER BY m.id DESC
+// Ambil semua kategori dari semua toko
+$categories = $pdo->query("
+    SELECT k.*, s.name as shop_name 
+    FROM kategori k 
+    JOIN shops s ON k.shop_id = s.id 
+    ORDER BY s.name, k.urutan ASC
     LIMIT $limit OFFSET $offset
 ")->fetchAll();
 
-// Data untuk form (Shops & Kategori)
+// Data untuk form (Shops)
 $shops = $pdo->query("SELECT id, name FROM shops WHERE status = 'active' ORDER BY name")->fetchAll();
-$all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOIN shops s ON k.shop_id = s.id ORDER BY s.name, k.nama")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Direktori Produk — WarungKu Admin</title>
+  <title>Manajemen Kategori — WarungKu Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -122,14 +116,14 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
     .mobile-header {
       display: none; height: 64px; background: var(--surface); border-bottom: 1px solid var(--border);
       padding: 0 20px; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 900;
+      position: sticky; top: 0; z-index: 2000;
     }
     .menu-toggle { background: none; border: none; color: var(--gold); font-size: 24px; cursor: pointer; padding: 8px; }
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 950; display: none; opacity: 0; transition: opacity 0.3s; }
 
     .card { background: var(--surface); border: 1px solid var(--border); padding: 24px; border-radius: 12px; margin-bottom: 24px; }
     .table-responsive { width: 100%; overflow-x: auto; }
-    .table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    .table { width: 100%; border-collapse: collapse; min-width: 600px; }
     .table th { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
     .table td { padding: 16px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
 
@@ -142,6 +136,7 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
     .btn-tool { padding: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; cursor: pointer; }
 
     .alert { padding: 16px; border-radius: 8px; margin-bottom: 24px; font-weight: 600; font-size: 14px; background: rgba(76,175,125,0.1); color: var(--green); border: 1px solid var(--green); }
+    .alert-error { background: rgba(224,82,82,0.1); color: var(--red); border-color: var(--red); }
 
     @media (max-width: 992px) {
       .sidebar { transform: translateX(-100%); }
@@ -164,7 +159,7 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
 
     /* MODAL */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
-    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 600px; padding: 32px; max-height: 90vh; overflow-y: auto; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 500px; padding: 32px; }
   </style>
 </head>
 <body>
@@ -183,8 +178,8 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
         <a href="index.php">📊 Dashboard</a>
         <a href="shops.php">🏪 Manajemen Toko</a>
         <a href="users.php">👥 Manajemen User</a>
-        <a href="categories.php">📁 Manajemen Kategori</a>
-        <a href="products.php" class="active">🍔 Manajemen Produk</a>
+        <a href="categories.php" class="active">📁 Manajemen Kategori</a>
+        <a href="products.php">🍔 Manajemen Produk</a>
         <a href="subscriptions.php">💎 Pembelian Token</a>
         <a href="logs.php">📜 Log Aktivitas</a>
       </nav>
@@ -194,49 +189,38 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
     <main class="main">
       <header class="header">
         <div>
-          <h1 class="title">Direktori Produk</h1>
-          <p style="color:var(--text-dim);font-size:14px;">Kelola seluruh daftar produk dari semua tenant.</p>
+          <h1 class="title">Manajemen Kategori</h1>
+          <p style="color:var(--text-dim);font-size:14px;">Kelola kategori menu untuk seluruh tenant.</p>
         </div>
-        <button class="btn" onclick="openAdd()">+ Tambah Produk</button>
+        <button class="btn" onclick="openAdd()">+ Tambah Kategori</button>
       </header>
 
       <?php if ($message): ?><div class="alert">✓ <?= htmlspecialchars($message) ?></div><?php endif; ?>
+      <?php if ($error): ?><div class="alert alert-error">⚠ <?= htmlspecialchars($error) ?></div><?php endif; ?>
 
       <div class="card">
         <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
-                <th>Gambar</th>
-                <th>Nama Produk</th>
+                <th>Nama Kategori</th>
                 <th>Toko Pemilik</th>
-                <th>Kategori</th>
-                <th>Harga</th>
-                <th>Stok</th>
+                <th>Urutan</th>
                 <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
-              <?php foreach ($menus as $m): ?>
+              <?php foreach ($categories as $c): ?>
               <tr>
-                <td>
-                  <?php if($m['gambar_url']): ?>
-                    <img src="<?= htmlspecialchars($m['gambar_url']) ?>" style="width:40px; height:40px; object-fit:cover; border-radius:8px; border:1px solid var(--border);">
-                  <?php else: ?>
-                    <div style="width:40px; height:40px; background:var(--surface2); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:16px;">🍔</div>
-                  <?php endif; ?>
-                </td>
-                <td style="font-weight:bold; color:var(--cream);"><?= htmlspecialchars($m['nama']) ?></td>
-                <td><span style="color:var(--gold); font-size:12px; font-weight:600;"><?= htmlspecialchars($m['shop_name']) ?></span></td>
-                <td><?= htmlspecialchars($m['kategori_nama'] ?: '-') ?></td>
-                <td><?= rupiah($m['harga']) ?></td>
-                <td><?= $m['stok'] ? 'Tersedia' : 'Habis' ?></td>
+                <td style="font-weight:bold; color:var(--cream);"><?= htmlspecialchars($c['nama']) ?></td>
+                <td><span style="color:var(--gold); font-size:12px; font-weight:600;"><?= htmlspecialchars($c['shop_name']) ?></span></td>
+                <td><?= $c['urutan'] ?></td>
                 <td>
                   <div style="display:flex; gap:8px;">
-                    <button class="btn-tool" onclick='openEdit(<?= json_encode($m) ?>)'>✏️</button>
-                    <form method="POST" onsubmit="return confirm('Hapus produk ini?')">
+                    <button class="btn-tool" onclick='openEdit(<?= json_encode($c) ?>)'>✏️</button>
+                    <form method="POST" onsubmit="return confirm('Hapus kategori ini?')">
                       <input type="hidden" name="action" value="delete">
-                      <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                      <input type="hidden" name="id" value="<?= $c['id'] ?>">
                       <button type="submit" class="btn-tool" style="color:var(--red)">🗑</button>
                     </form>
                   </div>
@@ -259,66 +243,36 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
   </div>
 
   <!-- MODAL ADD/EDIT -->
-  <div class="modal-overlay" id="productModal">
+  <div class="modal-overlay" id="categoryModal">
     <div class="modal">
-      <h2 id="modalTitle" style="font-family:'Playfair Display', serif; color:var(--gold); margin-bottom:24px;">Tambah Produk Baru</h2>
+      <h2 id="modalTitle" style="font-family:'Playfair Display', serif; color:var(--gold); margin-bottom:24px;">Tambah Kategori Baru</h2>
       <form method="POST">
         <input type="hidden" name="action" id="modalAction" value="add">
-        <input type="hidden" name="id" id="productId">
+        <input type="hidden" name="id" id="categoryId">
         
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-          <div class="form-group">
-            <label>Toko Pemilik</label>
-            <select name="shop_id" id="formShop" class="form-control" required onchange="filterKategori(this.value)">
-              <option value="">-- Pilih Toko --</option>
-              <?php foreach ($shops as $s): ?>
-                <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Kategori</label>
-            <select name="kategori_id" id="formKategori" class="form-control" required>
-              <option value="">-- Pilih Kategori --</option>
-              <?php foreach ($all_kategori as $k): ?>
-                <option value="<?= $k['id'] ?>" data-shop="<?= $k['shop_id'] ?>"><?= htmlspecialchars($k['nama']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
+        <div class="form-group">
+          <label>Toko Pemilik</label>
+          <select name="shop_id" id="formShop" class="form-control" required>
+            <option value="">-- Pilih Toko --</option>
+            <?php foreach ($shops as $s): ?>
+              <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
         </div>
 
         <div class="form-group">
-          <label>Nama Produk</label>
-          <input type="text" name="nama" id="formNama" class="form-control" required placeholder="Nasi Goreng Spesial">
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-          <div class="form-group">
-            <label>Harga (Rp)</label>
-            <input type="number" name="harga" id="formHarga" class="form-control" required placeholder="25000">
-          </div>
-          <div class="form-group">
-            <label>Stok</label>
-            <select name="stok" id="formStok" class="form-control">
-              <option value="1">Tersedia</option>
-              <option value="0">Habis</option>
-            </select>
-          </div>
+          <label>Nama Kategori</label>
+          <input type="text" name="nama" id="formNama" class="form-control" required placeholder="Minuman Dingin">
         </div>
 
         <div class="form-group">
-          <label>URL Gambar</label>
-          <input type="url" name="gambar_url" id="formGambar" class="form-control" placeholder="https://example.com/image.jpg">
-        </div>
-
-        <div class="form-group">
-          <label>Deskripsi</label>
-          <textarea name="deskripsi" id="formDeskripsi" class="form-control" rows="3" placeholder="Penjelasan singkat produk..."></textarea>
+          <label>Urutan Tampil</label>
+          <input type="number" name="urutan" id="formUrutan" class="form-control" required value="0">
         </div>
 
         <div style="display:flex; gap:12px; margin-top:32px;">
           <button type="button" class="btn" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); flex:1;" onclick="closeModal()">Batal</button>
-          <button type="submit" class="btn" style="flex:2;">SIMPAN PRODUK</button>
+          <button type="submit" class="btn" style="flex:2;">SIMPAN KATEGORI</button>
         </div>
       </form>
     </div>
@@ -331,51 +285,27 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
     }
 
     function openAdd() {
-      document.getElementById('modalTitle').textContent = 'Tambah Produk Baru';
+      document.getElementById('modalTitle').textContent = 'Tambah Kategori Baru';
       document.getElementById('modalAction').value = 'add';
-      document.getElementById('productId').value = '';
+      document.getElementById('categoryId').value = '';
       document.getElementById('formShop').value = '';
-      document.getElementById('formKategori').value = '';
       document.getElementById('formNama').value = '';
-      document.getElementById('formHarga').value = '';
-      document.getElementById('formStok').value = '1';
-      document.getElementById('formGambar').value = '';
-      document.getElementById('formDeskripsi').value = '';
-      document.getElementById('productModal').style.display = 'flex';
-      filterKategori('');
+      document.getElementById('formUrutan').value = '0';
+      document.getElementById('categoryModal').style.display = 'flex';
     }
 
     function openEdit(data) {
-      document.getElementById('modalTitle').textContent = 'Ubah Data Produk';
+      document.getElementById('modalTitle').textContent = 'Ubah Data Kategori';
       document.getElementById('modalAction').value = 'edit';
-      document.getElementById('productId').value = data.id;
+      document.getElementById('categoryId').value = data.id;
       document.getElementById('formShop').value = data.shop_id;
-      filterKategori(data.shop_id);
-      document.getElementById('formKategori').value = data.kategori_id;
       document.getElementById('formNama').value = data.nama;
-      document.getElementById('formHarga').value = data.harga;
-      document.getElementById('formStok').value = data.stok;
-      document.getElementById('formGambar').value = data.gambar_url;
-      document.getElementById('formDeskripsi').value = data.deskripsi;
-      document.getElementById('productModal').style.display = 'flex';
+      document.getElementById('formUrutan').value = data.urutan;
+      document.getElementById('categoryModal').style.display = 'flex';
     }
 
     function closeModal() {
-      document.getElementById('productModal').style.display = 'none';
-    }
-
-    function filterKategori(shopId) {
-      const select = document.getElementById('formKategori');
-      const options = select.querySelectorAll('option');
-      options.forEach(opt => {
-        if (!opt.value) return;
-        if (!shopId || opt.dataset.shop == shopId) {
-          opt.style.display = 'block';
-        } else {
-          opt.style.display = 'none';
-        }
-      });
-      if (shopId) select.value = '';
+      document.getElementById('categoryModal').style.display = 'none';
     }
 
     // Auto-hide alerts after 5 seconds
