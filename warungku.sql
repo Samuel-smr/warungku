@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS pesanan (
     subtotal        INT UNSIGNED    NOT NULL DEFAULT 0,
     pajak           INT UNSIGNED    NOT NULL DEFAULT 0,
     total           INT UNSIGNED    NOT NULL DEFAULT 0,
-    status          ENUM('selesai','dibatalkan') NOT NULL DEFAULT 'selesai',
+    status          ENUM('proses', 'selesai', 'dibatalkan') NOT NULL DEFAULT 'proses',
     catatan         TEXT            DEFAULT NULL,
     created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
