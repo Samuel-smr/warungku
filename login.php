@@ -16,8 +16,11 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $csrf_token = $_POST['csrf_token'] ?? '';
 
-    if ($username && $password) {
+    if (!verifyCSRFToken($csrf_token)) {
+        $error = 'Sesi tidak valid. Silakan muat ulang halaman.';
+    } elseif ($username && $password) {
         try {
             $pdo = getDB();
             $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username AND role IN ('admin', 'kasir') LIMIT 1");
@@ -229,6 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST" action="">
+      <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
       <div class="form-group">
         <label for="username">Username</label>
         <input type="text" id="username" name="username" class="form-control" placeholder="Masukkan username" required autofocus value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">

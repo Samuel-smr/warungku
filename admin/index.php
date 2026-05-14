@@ -34,7 +34,7 @@ $stats = [
     }
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'DM Sans', sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
-    
+
     /* LAYOUT */
     .layout { display: flex; min-height: 100vh; }
 
