@@ -1,11 +1,26 @@
 <?php
 // ============================================================
-// config.php — Konfigurasi Database WarungKu
-// ============================================================
+date_default_timezone_set('Asia/Jakarta');
 
 if (session_status() === PHP_SESSION_NONE) {
-    ini_set('session.gc_maxlifetime', 31536000);
-    session_set_cookie_params(31536000);
+    // Set lifetime to 1 year (31536000 seconds)
+    $lifetime = 31536000;
+    ini_set('session.gc_maxlifetime', $lifetime);
+    ini_set('session.cookie_lifetime', $lifetime);
+    
+    // Set cookie parameters for modern PHP and better persistence
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => $lifetime,
+            'path' => '/',
+            'secure' => (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on'),
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    } else {
+        session_set_cookie_params($lifetime, '/; samesite=Lax', '', (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on'), true);
+    }
+    
     session_start();
 }
 
@@ -38,6 +53,8 @@ function getDB(): PDO
 
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            // Sinkronisasi timezone database dengan Asia/Jakarta
+            $pdo->exec("SET time_zone = '+07:00'");
         } catch (PDOException $e) {
             // Tampilkan pesan error yang ramah
             http_response_code(500);

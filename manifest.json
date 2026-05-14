@@ -1,0 +1,22 @@
+{
+  "name": "WarungKu Kasir",
+  "short_name": "WarungKu",
+  "description": "Sistem Kasir Pintar, Cepat & Mudah untuk Warung Anda",
+  "start_url": "app.php",
+  "display": "standalone",
+  "background_color": "#0f0e0b",
+  "theme_color": "#d4a853",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
