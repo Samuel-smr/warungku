@@ -27,6 +27,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $gambar_url = trim($_POST['gambar_url']);
         $deskripsi = trim($_POST['deskripsi']);
 
+        // Handle Image Upload
+        if (isset($_FILES['gambar_file']) && $_FILES['gambar_file']['error'] === UPLOAD_ERR_OK) {
+            $tmp_name = $_FILES['gambar_file']['tmp_name'];
+            $ext = pathinfo($_FILES['gambar_file']['name'], PATHINFO_EXTENSION);
+            $new_name = 'prod_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
+            $upload_path = __DIR__ . '/../uploads/' . $new_name;
+            
+            if (move_uploaded_file($tmp_name, $upload_path)) {
+                $gambar_url = 'uploads/' . $new_name;
+            }
+        }
+
         $stmt = $pdo->prepare("INSERT INTO menu (shop_id, kategori_id, nama, harga, stok, gambar_url, deskripsi) VALUES (?, ?, ?, ?, ?, ?, ?)");
         if ($stmt->execute([$shop_id, $kategori_id, $nama, $harga, $stok, $gambar_url, $deskripsi])) {
             logActivity($_SESSION['user_id'], 'ADD_PRODUCT', "Menambah produk '$nama' ke Toko ID $shop_id");
@@ -41,6 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $stok = (int)$_POST['stok'];
         $gambar_url = trim($_POST['gambar_url']);
         $deskripsi = trim($_POST['deskripsi']);
+
+        // Handle Image Upload
+        if (isset($_FILES['gambar_file']) && $_FILES['gambar_file']['error'] === UPLOAD_ERR_OK) {
+            $tmp_name = $_FILES['gambar_file']['tmp_name'];
+            $ext = pathinfo($_FILES['gambar_file']['name'], PATHINFO_EXTENSION);
+            $new_name = 'prod_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
+            $upload_path = __DIR__ . '/../uploads/' . $new_name;
+            
+            if (move_uploaded_file($tmp_name, $upload_path)) {
+                $gambar_url = 'uploads/' . $new_name;
+            }
+        }
 
         $stmt = $pdo->prepare("UPDATE menu SET shop_id = ?, kategori_id = ?, nama = ?, harga = ?, stok = ?, gambar_url = ?, deskripsi = ? WHERE id = ?");
         if ($stmt->execute([$shop_id, $kategori_id, $nama, $harga, $stok, $gambar_url, $deskripsi, $id])) {
@@ -57,23 +81,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
+// ── SEARCH & FILTER ──
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$f_shop = isset($_GET['shop_id']) ? (int)$_GET['shop_id'] : 0;
+$f_kat = isset($_GET['kategori_id']) ? (int)$_GET['kategori_id'] : 0;
+
+$where = ["1=1"];
+$params = [];
+
+if ($search) {
+    $where[] = "m.nama LIKE ?";
+    $params[] = "%$search%";
+}
+if ($f_shop) {
+    $where[] = "m.shop_id = ?";
+    $params[] = $f_shop;
+}
+if ($f_kat) {
+    $where[] = "m.kategori_id = ?";
+    $params[] = $f_kat;
+}
+
+$where_sql = implode(" AND ", $where);
+
 // ── PAGINATION ──
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-$total_products = $pdo->query("SELECT COUNT(*) FROM menu")->fetchColumn();
+$stmt_count = $pdo->prepare("SELECT COUNT(*) FROM menu m WHERE $where_sql");
+$stmt_count->execute($params);
+$total_products = $stmt_count->fetchColumn();
 $total_pages = ceil($total_products / $limit);
 
 // Ambil semua menu dari semua toko
-$menus = $pdo->query("
+$stmt = $pdo->prepare("
     SELECT m.*, s.name as shop_name, k.nama as kategori_nama
     FROM menu m 
     JOIN shops s ON m.shop_id = s.id 
     LEFT JOIN kategori k ON m.kategori_id = k.id
+    WHERE $where_sql
     ORDER BY m.id DESC
     LIMIT $limit OFFSET $offset
-")->fetchAll();
+");
+$stmt->execute($params);
+$menus = $stmt->fetchAll();
 
 // Data untuk form (Shops & Kategori)
 $shops = $pdo->query("SELECT id, name FROM shops WHERE status = 'active' ORDER BY name")->fetchAll();
@@ -202,6 +254,40 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
 
       <?php if ($message): ?><div class="alert">✓ <?= htmlspecialchars($message) ?></div><?php endif; ?>
 
+      <!-- FILTER BAR -->
+      <div class="card" style="margin-bottom:20px; padding:16px;">
+        <form method="GET" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div style="flex:2; min-width:200px;">
+            <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; font-weight:700; text-transform:uppercase;">Cari Produk</label>
+            <input type="text" name="search" class="form-control" value="<?= htmlspecialchars($search) ?>" placeholder="Masukkan nama produk...">
+          </div>
+          <div style="flex:1; min-width:150px;">
+            <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; font-weight:700; text-transform:uppercase;">Filter Toko</label>
+            <select name="shop_id" class="form-control" onchange="this.form.submit()">
+              <option value="">-- Semua Toko --</option>
+              <?php foreach ($shops as $s): ?>
+                <option value="<?= $s['id'] ?>" <?= $f_shop == $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars($s['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div style="flex:1; min-width:150px;">
+            <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; font-weight:700; text-transform:uppercase;">Filter Kategori</label>
+            <select name="kategori_id" class="form-control" onchange="this.form.submit()">
+              <option value="">-- Semua Kategori --</option>
+              <?php foreach ($all_kategori as $k): ?>
+                <?php if (!$f_shop || $k['shop_id'] == $f_shop): ?>
+                  <option value="<?= $k['id'] ?>" <?= $f_kat == $k['id'] ? 'selected' : '' ?>><?= htmlspecialchars($k['nama']) ?> (<?= htmlspecialchars($k['shop_name']) ?>)</option>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn">Cari</button>
+            <a href="products.php" class="btn" style="background:var(--surface2); color:var(--text); border:1px solid var(--border); text-decoration:none; display:flex; align-items:center;">Reset</a>
+          </div>
+        </form>
+      </div>
+
       <div class="card">
         <div class="table-responsive">
           <table class="table">
@@ -220,8 +306,14 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
               <?php foreach ($menus as $m): ?>
               <tr>
                 <td>
-                  <?php if($m['gambar_url']): ?>
-                    <img src="<?= htmlspecialchars($m['gambar_url']) ?>" style="width:40px; height:40px; object-fit:cover; border-radius:8px; border:1px solid var(--border);">
+                  <?php 
+                    $img_src = $m['gambar_url'];
+                    if ($img_src && !filter_var($img_src, FILTER_VALIDATE_URL)) {
+                        $img_src = '../' . $img_src;
+                    }
+                  ?>
+                  <?php if($img_src): ?>
+                    <img src="<?= htmlspecialchars($img_src) ?>" style="width:40px; height:40px; object-fit:cover; border-radius:8px; border:1px solid var(--border);" onerror="this.src='../assets/default_menu.png'">
                   <?php else: ?>
                     <div style="width:40px; height:40px; background:var(--surface2); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:16px;">🍔</div>
                   <?php endif; ?>
@@ -236,7 +328,7 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
                     <button class="btn-tool" onclick='openEdit(<?= json_encode($m) ?>)'>✏️</button>
                     <form method="POST" onsubmit="return confirm('Hapus produk ini?')">
                       <input type="hidden" name="action" value="delete">
-                      <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                      <input type="hidden" name="id" value="<?= $m['id'] ?>">
                       <button type="submit" class="btn-tool" style="color:var(--red)">🗑</button>
                     </form>
                   </div>
@@ -249,8 +341,13 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
 
         <?php if ($total_pages > 1): ?>
         <div class="pagination">
-          <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-            <a href="?page=<?= $i ?>" class="page-link <?= $page == $i ? 'active' : '' ?>"><?= $i ?></a>
+          <?php 
+            $query_params = $_GET; 
+            for ($i = 1; $i <= $total_pages; $i++): 
+              $query_params['page'] = $i;
+              $page_url = '?' . http_build_query($query_params);
+          ?>
+            <a href="<?= $page_url ?>" class="page-link <?= $page == $i ? 'active' : '' ?>"><?= $i ?></a>
           <?php endfor; ?>
         </div>
         <?php endif; ?>
@@ -262,7 +359,7 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
   <div class="modal-overlay" id="productModal">
     <div class="modal">
       <h2 id="modalTitle" style="font-family:'Playfair Display', serif; color:var(--gold); margin-bottom:24px;">Tambah Produk Baru</h2>
-      <form method="POST">
+      <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="action" id="modalAction" value="add">
         <input type="hidden" name="id" id="productId">
         
@@ -307,8 +404,13 @@ $all_kategori = $pdo->query("SELECT k.*, s.name as shop_name FROM kategori k JOI
         </div>
 
         <div class="form-group">
-          <label>URL Gambar</label>
-          <input type="url" name="gambar_url" id="formGambar" class="form-control" placeholder="https://example.com/image.jpg">
+          <label>Gambar Produk (Upload / URL)</label>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <input type="file" name="gambar_file" id="formFile" class="form-control" accept="image/*" style="flex:1;">
+            <span style="color:var(--text-dim); font-size:12px;">atau</span>
+            <input type="url" name="gambar_url" id="formGambar" class="form-control" placeholder="https://..." style="flex:1;">
+          </div>
+          <small style="color:var(--text-dim); font-size:11px; margin-top:4px; display:block;">Pilih salah satu. Upload file akan diprioritaskan.</small>
         </div>
 
         <div class="form-group">

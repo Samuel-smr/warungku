@@ -22,9 +22,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $name = trim($_POST['name']);
         // Default 1 bulan dari hari ini jika tidak diisi
         $ends_at = $_POST['ends_at'] ?: date('Y-m-d', strtotime('+1 month'));
+        $enable_qty = isset($_POST['enable_qty_input']) ? 1 : 0;
         
-        $stmt = $pdo->prepare("INSERT INTO shops (name, subscription_ends_at) VALUES (?, ?)");
-        if ($stmt->execute([$name, $ends_at])) {
+        $stmt = $pdo->prepare("INSERT INTO shops (name, subscription_ends_at, enable_qty_input) VALUES (?, ?, ?)");
+        if ($stmt->execute([$name, $ends_at, $enable_qty])) {
             $message = "Toko '$name' berhasil ditambahkan (Aktif s/d " . date('d/m/Y', strtotime($ends_at)) . ").";
         }
     } elseif ($action === 'edit') {
@@ -32,8 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $name = trim($_POST['name']);
         $ends_at = $_POST['ends_at'] ?: null;
         $status = $_POST['status'];
-        $stmt = $pdo->prepare("UPDATE shops SET name = ?, subscription_ends_at = ?, status = ? WHERE id = ?");
-        if ($stmt->execute([$name, $ends_at, $status, $id])) {
+        $enable_qty = isset($_POST['enable_qty_input']) ? 1 : 0;
+        $stmt = $pdo->prepare("UPDATE shops SET name = ?, subscription_ends_at = ?, status = ?, enable_qty_input = ? WHERE id = ?");
+        if ($stmt->execute([$name, $ends_at, $status, $enable_qty, $id])) {
             $message = "Data toko berhasil diperbarui.";
         }
     } elseif ($action === 'delete') {
@@ -197,6 +199,10 @@ $shops = $pdo->query("SELECT * FROM shops ORDER BY id DESC LIMIT $limit OFFSET $
             <label>Masa Aktif Awal (Trial 1 Bln)</label>
             <input type="date" name="ends_at" class="form-control" value="<?= date('Y-m-d', strtotime('+1 month')) ?>">
           </div>
+          <div class="form-group" style="flex:1; min-width:150px; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" name="enable_qty_input" id="addQty" value="1">
+            <label for="addQty" style="margin:0; font-size:13px; cursor:pointer;">Aktifkan Input Jumlah (User)</label>
+          </div>
           <div class="form-group">
             <button type="submit" class="btn">Simpan Toko</button>
           </div>
@@ -275,6 +281,11 @@ $shops = $pdo->query("SELECT * FROM shops ORDER BY id DESC LIMIT $limit OFFSET $
           </select>
         </div>
 
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" name="enable_qty_input" id="editQty" value="1">
+          <label for="editQty" style="margin:0; font-size:14px; cursor:pointer;">Aktifkan Input Jumlah (Pop-up)</label>
+        </div>
+
         <div style="display:flex; gap:12px; margin-top:32px;">
           <button type="button" class="btn" style="background:transparent; border:1px solid var(--border); color:var(--text-dim); flex:1;" onclick="closeEdit()">Batal</button>
           <button type="submit" class="btn" style="flex:2;">SIMPAN PERUBAHAN</button>
@@ -294,6 +305,7 @@ $shops = $pdo->query("SELECT * FROM shops ORDER BY id DESC LIMIT $limit OFFSET $
       document.getElementById('editName').value = data.name;
       document.getElementById('editEnds').value = data.subscription_ends_at;
       document.getElementById('editStatus').value = data.status;
+      document.getElementById('editQty').checked = data.enable_qty_input == 1;
       document.getElementById('editModal').style.display = 'flex';
     }
 

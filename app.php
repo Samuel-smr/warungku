@@ -28,9 +28,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_status') {
 }
 
 // Cek Langganan
-$stmtSub = $pdo->prepare("SELECT name, subscription_ends_at FROM shops WHERE id = :shop_id");
+$stmtSub = $pdo->prepare("SELECT name, subscription_ends_at, enable_qty_input FROM shops WHERE id = :shop_id");
 $stmtSub->execute(['shop_id' => $shop_id]);
 $shop_info = $stmtSub->fetch();
+$enable_qty_input = $shop_info['enable_qty_input'] ?? 0;
 
 $is_expired = false;
 $days_left = 999;
@@ -86,7 +87,7 @@ if (isset($_GET['ajax_active_orders'])) {
                 <div class="h-price">Rp '.number_format($o['total'], 0, ',', '.').'</div>
                 <div class="h-actions">
                     <button class="h-btn btn-done" onclick="updateStatus('.$o['id'].', \'selesai\')">✅ SELESAI</button>
-                    <button class="h-btn btn-cancel" onclick="updateStatus('.$o['id'].', \'dibatalkan\')">❌ BATAL</button>
+                    <button class="h-btn btn-cancel" onclick="updateStatus('.$o['id'].', \'dibatalkan\')" title="Batalkan Pesanan"><span>❌</span></button>
                 </div>
               </div>';
     }
@@ -164,6 +165,7 @@ if (isset($_GET['ajax_menu'])) {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script>
+        const ENABLE_QTY_INPUT = <?= $enable_qty_input ? 'true' : 'false' ?>;
         const savedTheme = localStorage.getItem('warungku_theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
 
@@ -194,9 +196,18 @@ if (isset($_GET['ajax_menu'])) {
         .sidebar { width: 350px; background: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
         .sidebar-header { padding: 24px; border-bottom: 2px solid var(--border); background: var(--surface2); }
         .sidebar-header h2 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 24px; }
+        .btn-expand-sidebar { display: none; }
         .history-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
         
-        .history-item { background: var(--surface2); border: 2px solid var(--border); border-radius: 16px; padding: 20px; animation: slideIn 0.3s ease; }
+        .order-summary-bar { display: none; background: var(--surface2); padding: 12px 20px; border-bottom: 2px solid var(--border); overflow-x: auto; white-space: nowrap; gap: 10px; scrollbar-width: none; align-items: center; }
+        .order-summary-bar::-webkit-scrollbar { display: none; }
+        .summary-badge { background: var(--surface); border: 1px solid var(--border); padding: 6px 14px; border-radius: 50px; font-size: 13px; font-weight: 700; color: var(--gold); display: flex; align-items: center; gap: 8px; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .summary-badge span { background: var(--gold); color: var(--bg); padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 900; }
+        .summary-badge.active { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+        .summary-badge.active span { background: var(--bg); color: var(--gold); }
+        
+        .history-item { background: var(--surface2); border: 2px solid var(--border); border-radius: 16px; padding: 20px; animation: slideIn 0.3s ease; transition: 0.2s; }
+        .history-item.highlighted { border-color: var(--gold); border-width: 3px; transform: scale(1.02); box-shadow: 0 10px 30px rgba(212,168,83,0.3); z-index: 10; position: relative; }
         @keyframes slideIn { from { opacity:0; transform:translateY(15px); } }
         
         .h-meta { font-size: 13px; color: var(--text-dim); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; }
@@ -204,9 +215,10 @@ if (isset($_GET['ajax_menu'])) {
         .h-price { font-size: 20px; font-weight: 700; color: var(--gold); margin-bottom: 16px; }
         
         .h-actions { display: flex; gap: 12px; }
-        .h-btn { flex: 1; padding: 14px; border-radius: 12px; border: none; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; letter-spacing: 0.5px; }
-        .btn-done { background: var(--green); color: #fff; box-shadow: 0 4px 0 #2d6648; }
-        .btn-cancel { background: var(--red); color: #fff; box-shadow: 0 4px 0 #a33b3b; }
+        .h-btn { padding: 14px; border-radius: 12px; border: none; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; }
+        .btn-done { flex: 1; background: var(--green); color: #fff; box-shadow: 0 4px 0 #2d6648; }
+        .btn-cancel { width: 55px; background: var(--red); color: #fff; box-shadow: 0 4px 0 #a33b3b; border: none; }
+        .btn-cancel span { background: #fff; width: 30px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .h-btn:active { transform: translateY(2px); box-shadow: none; }
         .empty-msg { text-align: center; color: var(--text-dim); padding: 60px 20px; font-size: 18px; line-height: 1.6; }
 
@@ -222,6 +234,11 @@ if (isset($_GET['ajax_menu'])) {
         .btn-nav.logout { color: var(--red); border-color: var(--red); }
         .btn-nav:hover { background: var(--surface2); }
 
+        /* TOPBAR TOGGLE STYLE */
+        .topbar-toggle { display: none; }
+        .brand-wrapper { display: flex; align-items: center; justify-content: space-between; width: auto; }
+        .topbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
         .content { flex: 1; overflow-y: auto; padding: 32px; position: relative; }
         
         .sticky-controls { position: sticky; top: -32px; background: var(--bg); z-index: 90; padding: 10px 0 20px; margin-top: -10px; }
@@ -231,7 +248,7 @@ if (isset($_GET['ajax_menu'])) {
         .search-input:focus { border-color: var(--gold); outline: none; box-shadow: 0 0 0 4px var(--gold-dim); }
         .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 18px; }
 
-        .filter-bar { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
+        .filter-bar { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; padding-top: 12px; scrollbar-width: none; }
         .filter-bar::-webkit-scrollbar { display: none; }
         .filter-btn { padding: 12px 24px; border-radius: 100px; border: 2px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; white-space: nowrap; font-size: 16px; font-weight: 700; transition: 0.2s; }
         .filter-btn.active { background: var(--gold); color: var(--bg); border-color: var(--gold); }
@@ -266,18 +283,56 @@ if (isset($_GET['ajax_menu'])) {
         .toast { position: fixed; top: 32px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; padding: 18px 32px; border-radius: 20px; font-weight: 800; font-size: 18px; z-index: 1000; display: none; box-shadow: 0 15px 50px rgba(0,0,0,0.8); animation: toastIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); width: max-content; min-width: 350px; max-width: 90%; text-align: center; border: 2px solid rgba(255,255,255,0.2); }
         @keyframes toastIn { from { top: -100px; opacity: 0; } to { top: 32px; opacity: 1; } }
         .loader { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999; display: none; align-items: center; justify-content: center; color: var(--gold); font-weight: 800; font-size: 20px; }
+        .offline-indicator { position: fixed; bottom: 20px; right: 20px; background: #ff9800; color: #000; padding: 12px 20px; border-radius: 50px; font-weight: 800; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; gap: 10px; animation: pulse 2s infinite; border: 2px solid #fff; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         @media (max-width: 992px) {
-            body { flex-direction: column-reverse; height: auto; min-height: 100vh; overflow: visible; }
-            .sidebar { width: 100%; height: auto; max-height: 500px; border-right: none; border-top: 2px solid var(--border); }
-            .history-list { height: 350px; }
+            body { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; padding-bottom: 72px; }
+            body.sidebar-open { overflow: hidden; }
+            .sidebar { 
+                position: fixed; bottom: 0; left: 0; right: 0; width: 100%; 
+                height: 72px; z-index: 900; 
+                border-top: 2px solid var(--border); border-right: none; 
+                transition: 0.3s ease; overflow: hidden; background: var(--surface);
+            }
+            .sidebar-header { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; cursor: pointer; }
+            .btn-expand-sidebar { 
+                display: flex; align-items: center; justify-content: center;
+                background: var(--surface); border: 2px solid var(--border);
+                color: var(--gold); width: 40px; height: 40px; border-radius: 10px;
+                cursor: pointer; font-size: 20px; transition: 0.2s;
+            }
+            .sidebar.full-screen { 
+                height: 100vh !important; max-height: 100vh !important;
+                z-index: 2000; background: var(--bg); border: none;
+            }
+            .sidebar.full-screen .btn-expand-sidebar { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+            .history-list { display: none; }
+            .sidebar.full-screen .history-list { display: flex; height: calc(100vh - 140px) !important; overflow-y: auto; }
+            .order-summary-bar { display: none; }
+            .sidebar.full-screen .order-summary-bar { display: flex; overflow-x: auto; }
             .main { flex: none; width: 100%; min-height: 100vh; }
-            .topbar { padding: 0 16px; height: auto; padding: 16px; flex-wrap: wrap; gap: 12px; position: sticky; top: 0; z-index: 100; }
+            .topbar { padding: 16px; height: auto; flex-direction: column; align-items: flex-start; position: sticky; top: 0; z-index: 100; }
+            .brand-wrapper { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+            .topbar-toggle { 
+                display: flex; align-items: center; justify-content: center;
+                background: var(--surface2); border: 2px solid var(--border);
+                color: var(--gold); width: 40px; height: 40px; border-radius: 10px;
+                cursor: pointer; font-size: 18px; transition: 0.2s;
+            }
+            .topbar.expanded .topbar-toggle { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+            
+            .topbar-actions { 
+                display: none; width: 100%; padding-top: 16px; margin-top: 12px;
+                border-top: 1px solid var(--border);
+                flex-direction: column; align-items: stretch !important; gap: 10px !important;
+            }
+            .topbar.expanded .topbar-actions { display: flex; }
+            
             .content { padding: 20px; overflow: visible; flex: none; }
             .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-            .btn-nav { padding: 6px 10px; font-size: 12px; border-radius: 8px; gap: 4px; }
+            .btn-nav { width: 100%; justify-content: center; padding: 10px; font-size: 14px; border-radius: 10px; }
             .brand { font-size: 20px; }
-            .topbar-actions { gap: 8px !important; }
             .filter-btn { padding: 8px 16px; font-size: 14px; }
             .sticky-controls { top: 0; padding: 15px 0; background: var(--bg); border-bottom: 1px solid var(--border); margin-bottom: 20px; }
             .search-input { padding: 12px 18px 12px 45px; font-size: 14px; }
@@ -291,10 +346,8 @@ if (isset($_GET['ajax_menu'])) {
             .badge-sold { display: flex; align-items: center; gap: 3px; }
             .empty-msg small { display: none; }
             .toast { min-width: 90%; font-size: 16px; padding: 14px 20px; }
+            .offline-indicator { bottom: 92px; }
         }
-
-        .offline-indicator { position: fixed; bottom: 20px; right: 20px; background: #ff9800; color: #000; padding: 12px 20px; border-radius: 50px; font-weight: 800; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; gap: 10px; animation: pulse 2s infinite; border: 2px solid #fff; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
@@ -306,10 +359,14 @@ if (isset($_GET['ajax_menu'])) {
         <style> body { padding-top: 40px; } .topbar { top: 40px; } .rakitan-bar { top: 40px; } </style>
     <?php endif; ?>
 
-    <aside class="sidebar">
-        <div class="sidebar-header">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header" onclick="toggleSidebarFull()">
             <h2>Pesanan Aktif</h2>
+            <button class="btn-expand-sidebar" id="expandBtn" aria-label="Toggle Full Screen">
+                <span id="expandIcon">⛶</span>
+            </button>
         </div>
+        <div class="order-summary-bar" id="orderSummaryBar"></div>
         <div class="history-list" id="orderList">
             <!-- AJAX LOAD -->
         </div>
@@ -327,10 +384,15 @@ if (isset($_GET['ajax_menu'])) {
             </div>
         </div>
 
-        <header class="topbar">
-            <div class="brand">Warung<span>Ku</span></div>
-            <div class="topbar-actions" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <button onclick="startMixed()" class="btn-nav manage" id="mixedBtn" style="background:var(--gold); color:#000;">➕ Pesanan Campur (Rakitan)</button>
+        <header class="topbar" id="mainTopbar">
+            <div class="brand-wrapper">
+                <div class="brand">Warung<span>Ku</span></div>
+                <button class="topbar-toggle" onclick="toggleTopbar()" id="toggleBtn" aria-label="Toggle Menu">
+                    <span id="toggleIcon">☰</span>
+                </button>
+            </div>
+            <div class="topbar-actions" id="topbarActions">
+                <button onclick="startMixed()" class="btn-nav manage" id="mixedBtn" style="background:var(--gold); color:#000;">➕ Pesanan Campur</button>
                 <button onclick="toggleTheme()" class="btn-nav theme" id="themeBtn">☀️ Mode Terang</button>
                 <a href="kelola_menu.php" class="btn-nav manage">⚙️ Kelola Menu</a>
                 <a href="riwayat.php" class="btn-nav history">📋 Riwayat</a>
@@ -377,7 +439,139 @@ if (isset($_GET['ajax_menu'])) {
         <span>📶</span> <span id="offlineCount">0</span> Pesanan Menunggu Sinkronisasi...
     </div>
 
+    <!-- QTY MODAL -->
+    <style>
+        /* MODAL & QTY INPUT */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
+        .modal { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+        #qtyInput::-webkit-inner-spin-button, #qtyInput::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        #qtyInput { -moz-appearance: textfield; }
+    </style>
+    <div class="modal-overlay" id="qtyModal" style="z-index: 3000;">
+        <div class="modal" style="max-width: 320px; text-align: center; padding: 32px 24px;">
+            <h3 id="qtyModalName" style="color:var(--cream); margin-bottom: 24px; font-size: 20px; font-family: 'Playfair Display', serif;">Nama Menu</h3>
+            <div style="display:flex; align-items:center; justify-content:center; gap: 16px; margin-bottom: 32px;">
+                <button onclick="document.getElementById('qtyInput').stepDown()" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface2); color: var(--gold); font-size: 24px; font-weight: bold; cursor: pointer; transition:0.2s;">-</button>
+                <input type="number" id="qtyInput" value="1" min="1" style="width: 60px; text-align: center; font-size: 32px; font-weight: 900; background: transparent; border: none; color: var(--cream); outline: none; padding:0;">
+                <button onclick="document.getElementById('qtyInput').stepUp()" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface2); color: var(--gold); font-size: 24px; font-weight: bold; cursor: pointer; transition:0.2s;">+</button>
+            </div>
+            <div style="display:flex; gap: 12px; justify-content: center;">
+                <button onclick="closeQtyModal()" style="flex:1; padding: 14px; border-radius: 16px; border: 2px solid var(--red); background: transparent; color: var(--red); font-size: 24px; cursor: pointer; transition:0.2s;" title="Batal">❌</button>
+                <button onclick="submitQty()" style="flex:1; padding: 14px; border-radius: 16px; border: none; background: var(--green); color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 0 #2d6648; transition:0.2s;" title="Pesan">✅</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let currentQtyItem = null;
+        function openQtyModal(id, name, price) {
+            currentQtyItem = { id, name, price };
+            document.getElementById('qtyModalName').textContent = name;
+            document.getElementById('qtyInput').value = 1;
+            document.getElementById('qtyModal').style.display = 'flex';
+        }
+        function closeQtyModal() {
+            document.getElementById('qtyModal').style.display = 'none';
+            currentQtyItem = null;
+        }
+        function submitQty() {
+            const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+            if (isMixedMode) {
+                mixedItems.push({ menu_id: currentQtyItem.id, nama: currentQtyItem.name, harga: currentQtyItem.price, jumlah: qty });
+                document.getElementById('menu-' + currentQtyItem.id).classList.add('selected');
+                updateRakitanUI();
+            } else {
+                quickOrder(currentQtyItem.id, currentQtyItem.name, qty);
+            }
+            closeQtyModal();
+        }
+        // --- TOPBAR LOGIC ---
+        function toggleTopbar() {
+            const topbar = document.getElementById('mainTopbar');
+            const icon = document.getElementById('toggleIcon');
+            topbar.classList.toggle('expanded');
+            
+            if (topbar.classList.contains('expanded')) {
+                icon.textContent = '✕';
+            } else {
+                icon.textContent = '☰';
+            }
+        }
+
+        function toggleSidebarFull() {
+            if (window.innerWidth > 992) return;
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('expandIcon');
+            const isFull = sidebar.classList.toggle('full-screen');
+            document.body.classList.toggle('sidebar-open');
+            
+            icon.textContent = isFull ? '✕' : '⛶';
+        }
+
+        let currentHighlightItem = null;
+
+        function highlightOrdersByItem(itemName, btn) {
+            const items = document.querySelectorAll('#orderList .history-item');
+            const badges = document.querySelectorAll('.summary-badge');
+            
+            if (currentHighlightItem === itemName) {
+                // Remove highlight
+                items.forEach(el => el.classList.remove('highlighted'));
+                if (btn) btn.classList.remove('active');
+                currentHighlightItem = null;
+            } else {
+                // Add highlight
+                items.forEach(el => {
+                    const nameEl = el.querySelector('.h-name');
+                    if (nameEl && nameEl.textContent.includes(itemName)) {
+                        el.classList.add('highlighted');
+                    } else {
+                        el.classList.remove('highlighted');
+                    }
+                });
+                badges.forEach(b => b.classList.remove('active'));
+                if (btn) btn.classList.add('active');
+                currentHighlightItem = itemName;
+            }
+        }
+
+        function updateOrderSummary() {
+            const names = document.querySelectorAll('#orderList .h-name');
+            const summary = {};
+            names.forEach(el => {
+                // Split by comma and clean whitespace
+                const items = el.textContent.split(',').map(s => s.trim());
+                items.forEach(item => {
+                    if (item) summary[item] = (summary[item] || 0) + 1;
+                });
+            });
+
+            const bar = document.getElementById('orderSummaryBar');
+            if (!bar) return;
+            
+            let html = '';
+            // Sort by count descending
+            const sortedItems = Object.entries(summary).sort((a, b) => b[1] - a[1]);
+            
+            for (const [name, count] of sortedItems) {
+                const isActive = (currentHighlightItem === name);
+                const safeName = name.replace(/'/g, "\\'");
+                html += `<div class="summary-badge ${isActive ? 'active' : ''}" onclick="highlightOrdersByItem('${safeName}', this)">${name} <span>${count}</span></div>`;
+            }
+            bar.innerHTML = html || '<div style="color:var(--text-dim); font-size:12px; padding: 5px;">Belum ada pesanan aktif</div>';
+            
+            // Re-apply highlight to the new items if needed
+            if (currentHighlightItem) {
+                const items = document.querySelectorAll('#orderList .history-item');
+                items.forEach(el => {
+                    const nameEl = el.querySelector('.h-name');
+                    if (nameEl && nameEl.textContent.includes(currentHighlightItem)) {
+                        el.classList.add('highlighted');
+                    }
+                });
+            }
+        }
+
         // --- THEME LOGIC ---
         function toggleTheme() {
             const current = document.documentElement.getAttribute('data-theme');
@@ -414,6 +608,11 @@ if (isset($_GET['ajax_menu'])) {
         }
 
         function handleMenuClick(id, name, price) {
+            if (ENABLE_QTY_INPUT) {
+                openQtyModal(id, name, price);
+                return;
+            }
+
             if (isMixedMode) {
                 // Add to mixed items
                 mixedItems.push({ menu_id: id, nama: name, harga: price, jumlah: 1 });
@@ -421,13 +620,14 @@ if (isset($_GET['ajax_menu'])) {
                 updateRakitanUI();
             } else {
                 // Regular one-click
-                quickOrder(id, name);
+                quickOrder(id, name, 1);
             }
         }
 
         function updateRakitanUI() {
-            const total = mixedItems.reduce((sum, item) => sum + item.harga, 0);
-            document.getElementById('rakitanCount').textContent = mixedItems.length;
+            const total = mixedItems.reduce((sum, item) => sum + (item.harga * item.jumlah), 0);
+            const totalQty = mixedItems.reduce((sum, item) => sum + item.jumlah, 0);
+            document.getElementById('rakitanCount').textContent = totalQty;
             document.getElementById('rakitanTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
         }
 
@@ -612,7 +812,10 @@ if (isset($_GET['ajax_menu'])) {
             }
             
             const listEl = document.getElementById('orderList');
-            if (listEl) listEl.innerHTML = html;
+            if (listEl) {
+                listEl.innerHTML = html;
+                updateOrderSummary();
+            }
         }
 
         function renderOfflineOrder(order) {
@@ -628,6 +831,10 @@ if (isset($_GET['ajax_menu'])) {
                     <div class="h-meta">Kode: ${order.data.kode_pesanan}</div>
                     <div style="margin-top:10px; font-size:12px; color: var(--text-dim); font-style: italic;">
                         Pesanan tersimpan di memori HP. Otomatis terkirim saat sinyal kembali.
+                    </div>
+                    <div class="h-actions" style="margin-top:10px; opacity: 0.5; pointer-events: none;">
+                        <button class="h-btn btn-done">✅ SELESAI</button>
+                        <button class="h-btn btn-cancel"><span>❌</span></button>
                     </div>
                 </div>`;
         }
@@ -682,13 +889,13 @@ if (isset($_GET['ajax_menu'])) {
         }
 
         let busy = false;
-        async function quickOrder(id, name) {
+        async function quickOrder(id, name, qty = 1) {
             if (busy) return;
             busy = true;
             document.getElementById('loader').style.display = 'flex';
 
             const kode = 'ORD-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-            const orderData = { kode_pesanan: kode, items: [{ menu_id: id, jumlah: 1 }] };
+            const orderData = { kode_pesanan: kode, items: [{ menu_id: id, jumlah: qty }] };
             
             try {
                 const res = await fetch('api_checkout.php', {

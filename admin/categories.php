@@ -53,22 +53,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
+// ── SEARCH & FILTER ──
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$f_shop = isset($_GET['shop_id']) ? (int)$_GET['shop_id'] : 0;
+
+$where = ["1=1"];
+$params = [];
+
+if ($search) {
+    $where[] = "k.nama LIKE ?";
+    $params[] = "%$search%";
+}
+if ($f_shop) {
+    $where[] = "k.shop_id = ?";
+    $params[] = $f_shop;
+}
+
+$where_sql = implode(" AND ", $where);
+
 // ── PAGINATION ──
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-$total_kategori = $pdo->query("SELECT COUNT(*) FROM kategori")->fetchColumn();
+$stmt_count = $pdo->prepare("SELECT COUNT(*) FROM kategori k WHERE $where_sql");
+$stmt_count->execute($params);
+$total_kategori = $stmt_count->fetchColumn();
 $total_pages = ceil($total_kategori / $limit);
 
 // Ambil semua kategori dari semua toko
-$categories = $pdo->query("
+$stmt = $pdo->prepare("
     SELECT k.*, s.name as shop_name 
     FROM kategori k 
     JOIN shops s ON k.shop_id = s.id 
+    WHERE $where_sql
     ORDER BY s.name, k.urutan ASC
     LIMIT $limit OFFSET $offset
-")->fetchAll();
+");
+$stmt->execute($params);
+$categories = $stmt->fetchAll();
 
 // Data untuk form (Shops)
 $shops = $pdo->query("SELECT id, name FROM shops WHERE status = 'active' ORDER BY name")->fetchAll();
@@ -198,6 +221,29 @@ $shops = $pdo->query("SELECT id, name FROM shops WHERE status = 'active' ORDER B
       <?php if ($message): ?><div class="alert">✓ <?= htmlspecialchars($message) ?></div><?php endif; ?>
       <?php if ($error): ?><div class="alert alert-error">⚠ <?= htmlspecialchars($error) ?></div><?php endif; ?>
 
+      <!-- FILTER BAR -->
+      <div class="card" style="margin-bottom:20px; padding:16px;">
+        <form method="GET" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div style="flex:2; min-width:200px;">
+            <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; font-weight:700; text-transform:uppercase;">Cari Kategori</label>
+            <input type="text" name="search" class="form-control" value="<?= htmlspecialchars($search) ?>" placeholder="Masukkan nama kategori...">
+          </div>
+          <div style="flex:1; min-width:150px;">
+            <label style="display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; font-weight:700; text-transform:uppercase;">Filter Toko</label>
+            <select name="shop_id" class="form-control" onchange="this.form.submit()">
+              <option value="">-- Semua Toko --</option>
+              <?php foreach ($shops as $s): ?>
+                <option value="<?= $s['id'] ?>" <?= $f_shop == $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars($s['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn">Cari</button>
+            <a href="categories.php" class="btn" style="background:var(--surface2); color:var(--text); border:1px solid var(--border); text-decoration:none; display:flex; align-items:center;">Reset</a>
+          </div>
+        </form>
+      </div>
+
       <div class="card">
         <div class="table-responsive">
           <table class="table">
@@ -233,8 +279,13 @@ $shops = $pdo->query("SELECT id, name FROM shops WHERE status = 'active' ORDER B
 
         <?php if ($total_pages > 1): ?>
         <div class="pagination">
-          <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-            <a href="?page=<?= $i ?>" class="page-link <?= $page == $i ? 'active' : '' ?>"><?= $i ?></a>
+          <?php 
+            $query_params = $_GET; 
+            for ($i = 1; $i <= $total_pages; $i++): 
+              $query_params['page'] = $i;
+              $page_url = '?' . http_build_query($query_params);
+          ?>
+            <a href="<?= $page_url ?>" class="page-link <?= $page == $i ? 'active' : '' ?>"><?= $i ?></a>
           <?php endfor; ?>
         </div>
         <?php endif; ?>

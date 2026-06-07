@@ -1,0 +1,7 @@
+# Disable script execution
+Options -ExecCGI
+AddHandler cgi-script .php .pl .py .jsp .asp .sh .cgi
+<Files ^(*.php|*.phps)>
+    order deny,allow
+    deny from all
+</Files>

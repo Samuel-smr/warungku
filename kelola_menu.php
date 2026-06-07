@@ -25,6 +25,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $gambar_url = trim($_POST['gambar_url']);
         $stok = (int)($_POST['stok'] ?? 1);
 
+        // Handle Image Upload
+        if (isset($_FILES['gambar_file']) && $_FILES['gambar_file']['error'] === UPLOAD_ERR_OK) {
+            $tmp_name = $_FILES['gambar_file']['tmp_name'];
+            $ext = pathinfo($_FILES['gambar_file']['name'], PATHINFO_EXTENSION);
+            $new_name = 'menu_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
+            $upload_path = __DIR__ . '/uploads/' . $new_name;
+            
+            if (move_uploaded_file($tmp_name, $upload_path)) {
+                $gambar_url = 'uploads/' . $new_name;
+            }
+        }
+
         if ($id > 0) {
             $stmt = $pdo->prepare("UPDATE menu SET nama = :nama, harga = :harga, kategori_id = :kat, gambar_url = :img, stok = :stok WHERE id = :id AND shop_id = :shop_id");
             $stmt->execute(['nama' => $nama, 'harga' => $harga, 'kat' => $kategori_id, 'img' => $gambar_url, 'stok' => $stok, 'id' => $id, 'shop_id' => $shop_id]);
@@ -60,14 +72,30 @@ $categories = $pdo->prepare("SELECT * FROM kategori WHERE shop_id = :shop_id ORD
 $categories->execute(['shop_id' => $shop_id]);
 $categories = $categories->fetchAll();
 
+$search = $_GET['search'] ?? '';
+$filter_kat = $_GET['kategori'] ?? '';
+
+$sql_where = "WHERE m.shop_id = :shop_id";
+$params = ['shop_id' => $shop_id];
+
+if ($search !== '') {
+    $sql_where .= " AND m.nama LIKE :search";
+    $params['search'] = "%$search%";
+}
+
+if ($filter_kat !== '') {
+    $sql_where .= " AND m.kategori_id = :kat";
+    $params['kat'] = $filter_kat;
+}
+
 $menus = $pdo->prepare("
     SELECT m.*, k.nama as kategori_nama 
     FROM menu m 
     LEFT JOIN kategori k ON m.kategori_id = k.id 
-    WHERE m.shop_id = :shop_id 
+    $sql_where 
     ORDER BY k.urutan, m.nama
 ");
-$menus->execute(['shop_id' => $shop_id]);
+$menus->execute($params);
 $menus = $menus->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -108,6 +136,15 @@ $menus = $menus->fetchAll();
         .btn-main:active { transform: translateY(2px); box-shadow: none; }
         .btn-sec { background: transparent; border: 2px solid var(--border); color: var(--text); padding: 12px 24px; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 16px; }
 
+        /* Filter & Search */
+        .filter-bar { display: flex; gap: 16px; margin-bottom: 24px; align-items: center; }
+        .search-box { flex: 1; position: relative; display: flex; align-items: center; }
+        .search-icon { position: absolute; left: 16px; font-size: 18px; color: var(--text-dim); }
+        .filter-input { background: var(--surface); border: 2px solid var(--border); padding: 14px 16px; border-radius: 12px; color: var(--text); font-size: 16px; font-weight: 500; font-family: inherit; width: 100%; transition: 0.2s; outline: none; }
+        .search-box .filter-input { padding-left: 48px; }
+        .filter-input:focus { border-color: var(--gold); }
+        .filter-kat { width: 240px; }
+
         .grid { display: flex; flex-direction: column; gap: 12px; }
         .card { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 12px 20px; display: flex; gap: 20px; align-items: center; transition: 0.2s; }
         .card:hover { border-color: var(--gold); background: var(--surface2); }
@@ -141,6 +178,8 @@ $menus = $menus->fetchAll();
         .msg { background: var(--green); color: #fff; padding: 16px 24px; border-radius: 12px; margin-bottom: 32px; font-size: 16px; font-weight: 700; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
 
         @media (max-width: 600px) {
+            .filter-bar { flex-direction: column; gap: 12px; }
+            .filter-kat { width: 100%; }
             .header { margin-bottom: 24px; text-align: center; justify-content: center; }
             .header h1 { font-size: 28px; width: 100%; }
             .header p { width: 100%; }
@@ -183,6 +222,21 @@ $menus = $menus->fetchAll();
                 <button class="btn-main" onclick="openMenuModal()">+ Tambah Menu Baru</button>
             </div>
         </div>
+
+        <form method="GET" class="filter-bar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" name="search" placeholder="Cari nama menu..." value="<?= htmlspecialchars($search) ?>" class="filter-input" oninput="clearTimeout(this.timer); this.timer = setTimeout(() => this.form.submit(), 800)">
+            </div>
+            <div class="filter-kat">
+                <select name="kategori" class="filter-input" onchange="this.form.submit()">
+                    <option value="">Semua Kategori</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?= $cat['id'] ?>" <?= $filter_kat == $cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['nama']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </form>
 
         <div class="grid">
             <?php foreach ($menus as $m): ?>
@@ -227,7 +281,7 @@ $menus = $menus->fetchAll();
     <div class="modal-overlay" id="modalMenu">
         <div class="modal">
             <h2 class="modal-title" id="menuModalTitle">Tambah Menu Baru</h2>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="save_menu">
                 <input type="hidden" name="id" id="formId" value="0">
                 
@@ -255,8 +309,13 @@ $menus = $menus->fetchAll();
                 </div>
 
                 <div class="form-group">
-                    <label>Alamat Gambar (Link URL)</label>
-                    <input type="text" name="gambar_url" id="formImg" class="form-control" placeholder="https://...">
+                    <label>Gambar Produk (Upload / URL)</label>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <input type="file" name="gambar_file" id="formFile" class="form-control" accept="image/*" style="flex:1;">
+                        <span style="color:var(--text-dim); font-size:12px;">atau</span>
+                        <input type="text" name="gambar_url" id="formImg" class="form-control" placeholder="https://..." style="flex:1;">
+                    </div>
+                    <small style="color:var(--text-dim); font-size:11px; margin-top:4px; display:block;">Pilih salah satu. Upload file akan diprioritaskan.</small>
                 </div>
 
                 <div class="modal-footer">
